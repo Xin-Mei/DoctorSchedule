@@ -182,10 +182,19 @@ const HAS_GAS = /^https:\/\/script\.google\.com\//.test(GAS_URL);
 const TOK_KEY = 'ebs_admin_token', IDLE_MIN = 30;
 function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', err ? 6000 : 3000); }
 function busy(btn, on, label) { if (on) { btn._h = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span> ' + (label || '處理中…'); } else { btn.disabled = false; if (btn._h) btn.innerHTML = btn._h; } }
+/** 後台回傳不是 JSON（Google 錯誤頁）時，擷取錯誤文字 */
+async function readJson(res) {
+  const t = await res.text();
+  try { return JSON.parse(t); } catch (e) {
+    const d = document.createElement('div'); d.innerHTML = t.replace(/<(script|style)[\s\S]*?<\/\1>/gi, '');
+    const msg = (d.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    throw new Error('後台執行失敗（Google 回傳錯誤頁）' + (msg ? '：' + msg : '') + '。請到 Apps Script →「執行作業」查看錯誤原因');
+  }
+}
 async function api(action, payload) {
   if (!HAS_GAS) throw new Error('尚未設定後台網址 GAS_URL');
   const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, payload: payload || {}, token: TOKEN }) });
-  const j = await res.json();
+  const j = await readJson(res);
   if (j.auth) { showLogin(j.error); throw new Error(j.error); }
   if (!j.ok) throw new Error(j.error || '後台錯誤');
   return j.data;
@@ -198,7 +207,7 @@ $('#lgForm').addEventListener('submit', async ev => {
   ev.preventDefault(); $('#lgErr').textContent = ''; busy($('#lgBtn'), true, '登入中…');
   try {
     const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'login', payload: { role: 'admin', user: $('#lgUser').value.trim(), pass: $('#lgPass').value } }) });
-    const j = await res.json(); if (!j.ok) throw new Error(j.error);
+    const j = await readJson(res); if (!j.ok) throw new Error(j.error);
     TOKEN = j.data.token; WHO = { user: j.data.user, role: j.data.role };
     try { sessionStorage.setItem(TOK_KEY, TOKEN); sessionStorage.setItem(TOK_KEY + '_who', JSON.stringify(WHO)); } catch (e) {}
     $('#login').classList.add('hide'); document.body.classList.remove('locked'); boot();
