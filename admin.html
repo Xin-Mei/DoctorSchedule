@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>後台管理｜金鶯診所˙醫師基準班表系統</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Great+Vibes&display=swap" rel="stylesheet">
+<script src="engine.js"></script>
+<script>
+  /* 與 index.html 相同，部署後貼上一次即可 */
+  const SHEET_ID = '1sVtcHR3SVvu1-r_gM5NmbZIO3Bq0M5fJHJ76bkaEBDI';
+  const GAS_URL  = 'https://script.google.com/macros/s/AKfycbyzBzIiFVENrgDG70xzaVR2SjWz79nbZG6pzqYzibnBtGXSYVqxn2VNbzztYphy5f9y/exec';
+</script>
+<style>
+:root{--bg:#f2f0eb;--card:#fff;--ink:#1d2a28;--muted:#7b7a72;--line:#e3dfd5;--line2:#ece9e1;--brand:#1e3d3a;--brand2:#2b5a54;--brand-soft:#e6efed;--accent:#3aa58f;--ok:#2b7a5f;--ok-soft:#e3f2ea;--warn:#b7791f;--warn-soft:#fbf1dc;--bad:#b42318;--bad-soft:#fbe8e6;--mint:#e1f1ed;--mint-bd:#4d8d80;--beige:#efebe1;--beige-bd:#d8cfba}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;font-size:14px}
+button,input,select{font:inherit;color:inherit}
+header.top{background:var(--brand);color:#fff;display:flex;align-items:center;gap:28px;padding:0 28px;height:64px;position:sticky;top:0;z-index:20}
+.logo{display:flex;align-items:center;gap:12px;font-weight:700;font-size:19px;white-space:nowrap}
+.logo img{width:40px;height:40px;border-radius:50%;background:#fff;padding:1px}
+.logo small{font-weight:500;font-size:13px;background:#2f5652;border-radius:99px;padding:3px 10px;color:#cfe0dc}
+nav.tabs{display:flex;gap:6px;flex-wrap:wrap}
+nav.tabs button,nav.tabs a{background:none;border:0;color:#cfe0dc;padding:9px 16px;border-radius:9px;cursor:pointer;font-weight:500;text-decoration:none;font-size:15px}
+nav.tabs .on{background:#2f5652;color:#fff}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:#cfe0dc}
+.who{display:flex;align-items:center;gap:8px}
+.who button{background:#2b4c48;border:0;color:#cfe0dc;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:13px}
+main{padding:22px 28px 60px;max-width:1500px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-bottom:18px}
+.step{font-size:13px;letter-spacing:1.5px;color:#55605d;font-weight:700;margin:0}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.bar .grow{flex:1}
+.btn{border:1px solid #d9d4c8;background:#fff;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--brand2)}
+.btn.pri{background:var(--brand2);border-color:var(--brand2);color:#fff}
+.btn.sm{padding:5px 11px;font-size:13px;border-radius:8px}
+.btn.del{color:var(--bad);border-color:#efc9c4}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.hint{font-size:12.5px;color:var(--muted);line-height:1.6}
+.info{background:var(--brand-soft);color:#24524b;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.7;margin-bottom:12px}
+.warnbox{background:var(--warn-soft);color:#7a5412;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6;margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid #d9d4c8;background:#fff;border-radius:99px;padding:5px 12px;cursor:pointer;font-size:13px;font-weight:500}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:500}
+.tag.y{background:var(--warn-soft);color:var(--warn)}.tag.g{background:var(--ok-soft);color:var(--ok)}
+.tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:calc(100vh - 250px)}
+table.dt{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px}
+table.dt th{background:#f6f4ef;color:#55605d;font-weight:500;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;z-index:1}
+table.dt td{padding:6px 10px;border-bottom:1px solid var(--line2);white-space:nowrap}
+table.dt tr.off td{opacity:.5}
+table.dt tr.chg td{background:#fffbef}
+table.dt input[type=text],table.dt input[type=number],table.dt select{border:1px solid #d9d4c8;border-radius:8px;padding:5px 8px;background:#fff;outline:none}
+table.dt input.w-s{width:64px}table.dt input.w-m{width:120px}table.dt input.w-l{width:240px}
+table.dt input[type=checkbox]{width:16px;height:16px;accent-color:var(--brand2)}
+.inp{width:100%;border:1px solid #d9d4c8;border-radius:10px;padding:10px 12px;background:#fff;outline:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.set{display:grid;grid-template-columns:260px 280px 1fr;gap:10px 14px;align-items:center}
+.set .l{font-weight:500}.set .d{font-size:12.5px;color:var(--muted)}
+.pvwrap{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.pvwrap canvas{width:100%;border-radius:12px;box-shadow:0 6px 24px #1e3d3a1f}
+.search{border:1px solid #d9d4c8;border-radius:10px;padding:7px 12px;min-width:160px;outline:none}
+.toast{position:fixed;right:24px;bottom:24px;background:#1e3d3a;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 8px 24px #0003;opacity:0;transform:translateY(10px);transition:.25s;z-index:99;max-width:420px}
+.toast.show{opacity:1;transform:none}.toast.err{background:#9b2c20}
+.hide{display:none!important}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #fff6;border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.login{position:fixed;inset:0;z-index:100;background:linear-gradient(160deg,#1e3d3a 0%,#2b5a54 55%,#f2f0eb 55.1%);display:grid;place-items:center;padding:20px}
+.lg-card{background:#fff;border-radius:22px;padding:36px 34px 30px;width:100%;max-width:400px;box-shadow:0 20px 50px #0003;text-align:center}
+.lg-card img{width:92px;height:92px;border-radius:50%}
+.lg-card h2{margin:14px 0 4px;font-size:21px;color:var(--brand)}
+.lg-card .role{display:inline-block;background:#fbe8e6;color:#9b2c20;border-radius:99px;padding:3px 12px;font-size:13px;font-weight:500;margin-bottom:20px}
+.lg-card input{width:100%;border:1px solid #d9d4c8;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:15px;outline:none}
+.lg-card button{width:100%;border:0;border-radius:12px;padding:12px;background:var(--brand2);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+.lg-err{color:var(--bad);font-size:13px;min-height:20px;margin-top:10px}
+body.locked header.top,body.locked main{visibility:hidden}
+@media (max-width:1100px){.grid2,.pvwrap{grid-template-columns:1fr}.set{grid-template-columns:1fr}}
+</style>
+</head>
+<body class="locked">
+<div id="login" class="login hide"><form class="lg-card" id="lgForm">
+  <img id="lgLogo" alt="">
+  <h2>金鶯診所˙醫師基準班表系統</h2>
+  <div class="role">後台管理登入</div>
+  <input id="lgUser" placeholder="後台帳號" autocomplete="username" required>
+  <input id="lgPass" type="password" placeholder="密碼" autocomplete="current-password" required>
+  <button type="submit" id="lgBtn">登入</button>
+  <div class="lg-err" id="lgErr"></div>
+</form></div>
+
+<header class="top">
+  <div class="logo"><img id="hdLogo" alt="">醫師基準班表系統 <small>後台管理</small></div>
+  <nav class="tabs">
+    <button data-p="doctors" class="on">醫師清單</button>
+    <button data-p="clinics">院區清單</button>
+    <button data-p="settings">系統設定</button>
+    <button data-p="batches">產出紀錄</button>
+    <button data-p="account">帳號密碼</button>
+    <button data-p="log">操作紀錄</button>
+    <a href="index.html">回前台 ↗</a>
+  </nav>
+  <div class="right"><span class="who"><span id="whoName"></span><button onclick="logout()">登出</button></span></div>
+</header>
+
+<main>
+<div id="noGas" class="warnbox hide">尚未設定後台網址（GAS_URL）。部署 Apps Script 後，把網址貼到 admin.html 最上方的 GAS_URL。</div>
+
+<!-- 醫師清單 -->
+<section id="p-doctors">
+  <div class="card">
+    <div class="bar">
+      <p class="step">醫師清單 ˙ 職稱與專任院區</p>
+      <input id="dq" class="search" placeholder="搜尋醫師">
+      <div id="dFilter" class="chips"></div>
+      <div class="grow"></div>
+      <button class="btn sm" id="dAdd">＋ 新增醫師</button>
+      <button class="btn sm pri" id="dSave">儲存到後台</button>
+    </div>
+    <div class="info">・<b>職稱</b>會印在班表姓名後（總院長／院長／醫師，也可自行輸入如「減重醫師」）。<br>・<b>專任院區</b>的門診以淺綠色顯示，其他院區為米色。新醫師第一次出現時，系統預設「診次最多的院區」，請逐筆確認。<br>・醫師離職或暫停：取消「啟用」即可（不刪資料）；<b>排序</b>決定下載順序。姓名須與門診表完全一致。</div>
+    <div class="tbl-wrap"><table class="dt" id="dTable"><thead><tr><th>排序</th><th>醫師姓名</th><th>職稱</th><th>專任院區</th><th>啟用</th><th>備註</th><th></th></tr></thead><tbody></tbody></table></div>
+    <datalist id="titleList"><option>總院長</option><option>院長</option><option>醫師</option><option>減重醫師</option></datalist>
+  </div>
+</section>
+
+<!-- 院區清單 -->
+<section id="p-clinics" class="hide">
+  <div class="card">
+    <div class="bar"><p class="step">院區清單</p><div class="grow"></div><button class="btn sm" id="cAdd">＋ 新增院區</button><button class="btn sm pri" id="cSave">儲存到後台</button></div>
+    <div class="info">「班表分頁名稱」要和集團門診表的分頁名稱一致（例如分頁叫「鶯歌」）。新院區開幕：新增一列即可；停止營運：取消啟用。</div>
+    <div class="tbl-wrap"><table class="dt" id="cTable"><thead><tr><th>排序</th><th>院區</th><th>班表分頁名稱</th><th>啟用</th><th>備註</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<!-- 系統設定 -->
+<section id="p-settings" class="hide">
+  <div class="card">
+    <div class="bar"><p class="step">系統設定</p><div class="grow"></div><button class="btn sm pri" id="sSave">儲存設定</button></div>
+    <div class="set" id="sBox"></div>
+  </div>
+  <div class="card">
+    <p class="step" style="margin-bottom:12px">設定預覽（範例醫師）</p>
+    <div class="pvwrap"><canvas id="sPv"></canvas><div class="hint">修改上方設定後按「預覽」查看效果，確定後再按「儲存設定」。<br><br><button class="btn sm" id="sPvBtn">預覽</button></div></div>
+  </div>
+</section>
+
+<!-- 產出紀錄 -->
+<section id="p-batches" class="hide">
+  <div class="card">
+    <div class="bar"><p class="step">產出紀錄</p><input type="month" id="bMonth" class="search"><button class="btn sm" id="bAll">全部月份</button><div class="grow"></div><span class="hint">查看與下載請到前台「歷史查詢」。</span></div>
+    <div class="tbl-wrap"><table class="dt" id="bTable"><thead><tr><th>月份</th><th>生效日</th><th>醫師數</th><th>異動</th><th>來源</th><th>產出者</th><th>產出時間</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<!-- 帳號密碼 -->
+<section id="p-account" class="hide">
+  <div class="grid2">
+    <div class="card"><p class="step" style="margin-bottom:12px">前台帳號（產出班表、歷史查詢）</p>
+      <input id="aFU" class="inp" placeholder="新帳號" style="margin-bottom:10px"><input id="aFP" class="inp" type="password" placeholder="新密碼（至少 6 碼）" style="margin-bottom:10px">
+      <button class="btn pri" data-role="front">更新前台帳號密碼</button></div>
+    <div class="card"><p class="step" style="margin-bottom:12px">後台帳號（本頁＋前台皆可登入）</p>
+      <input id="aAU" class="inp" placeholder="新帳號" style="margin-bottom:10px"><input id="aAP" class="inp" type="password" placeholder="新密碼（至少 6 碼）" style="margin-bottom:10px">
+      <button class="btn pri" data-role="admin">更新後台帳號密碼</button></div>
+  </div>
+  <div class="hint">更新後所有人都需要重新登入。忘記密碼：開啟 Google Sheet → 上方選單「基準班表系統」重新設定。</div>
+</section>
+
+<!-- 操作紀錄 -->
+<section id="p-log" class="hide">
+  <div class="card"><div class="bar"><p class="step">操作紀錄（最近 200 筆）</p></div>
+    <div class="tbl-wrap"><table class="dt" id="lTable"><thead><tr><th>時間</th><th>帳號</th><th>動作</th><th>內容</th></tr></thead><tbody></tbody></table></div></div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const HAS_GAS = /^https:\/\/script\.google\.com\//.test(GAS_URL);
+const TOK_KEY = 'ebs_admin_token', IDLE_MIN = 30;
+function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', err ? 6000 : 3000); }
+function busy(btn, on, label) { if (on) { btn._h = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span> ' + (label || '處理中…'); } else { btn.disabled = false; if (btn._h) btn.innerHTML = btn._h; } }
+async function api(action, payload) {
+  if (!HAS_GAS) throw new Error('尚未設定後台網址 GAS_URL');
+  const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, payload: payload || {}, token: TOKEN }) });
+  const j = await res.json();
+  if (j.auth) { showLogin(j.error); throw new Error(j.error); }
+  if (!j.ok) throw new Error(j.error || '後台錯誤');
+  return j.data;
+}
+let TOKEN = (() => { try { return sessionStorage.getItem(TOK_KEY) || ''; } catch (e) { return ''; } })();
+let WHO = (() => { try { return JSON.parse(sessionStorage.getItem(TOK_KEY + '_who') || 'null'); } catch (e) { return null; } })();
+function showLogin(msg) { TOKEN = ''; try { sessionStorage.removeItem(TOK_KEY); } catch (e) {} document.body.classList.add('locked'); $('#login').classList.remove('hide'); $('#lgErr').textContent = msg || ''; }
+$('#lgLogo').src = E.LOGO; $('#hdLogo').src = E.LOGO;
+$('#lgForm').addEventListener('submit', async ev => {
+  ev.preventDefault(); $('#lgErr').textContent = ''; busy($('#lgBtn'), true, '登入中…');
+  try {
+    const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'login', payload: { role: 'admin', user: $('#lgUser').value.trim(), pass: $('#lgPass').value } }) });
+    const j = await res.json(); if (!j.ok) throw new Error(j.error);
+    TOKEN = j.data.token; WHO = { user: j.data.user, role: j.data.role };
+    try { sessionStorage.setItem(TOK_KEY, TOKEN); sessionStorage.setItem(TOK_KEY + '_who', JSON.stringify(WHO)); } catch (e) {}
+    $('#login').classList.add('hide'); document.body.classList.remove('locked'); boot();
+  } catch (e) { $('#lgErr').textContent = e.message; } finally { busy($('#lgBtn'), false); }
+});
+let idleTimer = null;
+function resetIdle() { clearTimeout(idleTimer); idleTimer = setTimeout(() => showLogin('閒置超過 30 分鐘，已自動登出'), IDLE_MIN * 60000); }
+['mousemove', 'keydown', 'scroll'].forEach(ev => window.addEventListener(ev, () => { if (Date.now() - (resetIdle._t || 0) > 5000) { resetIdle._t = Date.now(); resetIdle(); } }, { passive: true }));
+async function logout() { try { await api('logout'); } catch (e) {} try { sessionStorage.removeItem(TOK_KEY); } catch (e) {} location.reload(); }
+
+let CFG = { clinics: [], doctors: [], settings: [] }, DROWS = [], CROWS = [], DF = '', DIRTY = { d: false, c: false };
+async function boot() {
+  $('#whoName').textContent = WHO ? WHO.user : '';
+  resetIdle();
+  try { CFG = await api('getConfig'); } catch (e) { return toast(e.message, true); }
+  DROWS = CFG.doctors.map(d => ({ ...d })); CROWS = CFG.clinics.map(c => ({ ...c }));
+  renderDoctors(); renderClinics(); renderSettings();
+}
+$$('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+  $$('nav.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  ['doctors', 'clinics', 'settings', 'batches', 'account', 'log'].forEach(p => $('#p-' + p).classList.toggle('hide', p !== b.dataset.p));
+  if (b.dataset.p === 'batches') loadBatches();
+  if (b.dataset.p === 'log') loadLog();
+}));
+window.addEventListener('beforeunload', e => { if (DIRTY.d || DIRTY.c) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- 醫師清單 ---------- */
+function clinicNames() { return CROWS.filter(c => c.on !== false).map(c => c.clinic); }
+function renderDoctors() {
+  const q = $('#dq').value.trim();
+  $('#dFilter').innerHTML = ['全部'].concat(clinicNames()).map(c => '<button class="chip' + ((c === '全部' ? '' : c) === DF ? ' on' : '') + '" data-c="' + (c === '全部' ? '' : esc(c)) + '">' + esc(c) + ' <small>' + (c === '全部' ? DROWS.length : DROWS.filter(d => d.home === c).length) + '</small></button>').join('');
+  $$('#dFilter .chip').forEach(b => b.addEventListener('click', () => { DF = b.dataset.c; renderDoctors(); }));
+  const cl = clinicNames();
+  $('#dTable tbody').innerHTML = DROWS.map((d, i) => ({ d, i })).filter(({ d }) => (!q || d.name.indexOf(q) >= 0) && (!DF || d.home === DF)).map(({ d, i }) =>
+    '<tr data-i="' + i + '" class="' + (d.on === false ? 'off ' : '') + (d._chg ? 'chg' : '') + '">' +
+    '<td><input type="number" class="w-s" data-k="order" value="' + esc(d.order) + '"></td>' +
+    '<td><input type="text" class="w-m" data-k="name" value="' + esc(d.name) + '"></td>' +
+    '<td><input type="text" class="w-m" data-k="title" list="titleList" value="' + esc(d.title) + '"></td>' +
+    '<td><select data-k="home"><option value=""></option>' + cl.concat(cl.indexOf(d.home) < 0 && d.home ? [d.home] : []).map(c => '<option' + (c === d.home ? ' selected' : '') + '>' + esc(c) + '</option>').join('') + '</select></td>' +
+    '<td><input type="checkbox" data-k="on"' + (d.on !== false ? ' checked' : '') + '></td>' +
+    '<td><input type="text" class="w-l" data-k="note" value="' + esc(d.note) + '"></td>' +
+    '<td><button class="btn sm del" data-del="1">刪除</button></td></tr>').join('');
+  $$('#dTable tbody tr').forEach(tr => {
+    const d = DROWS[+tr.dataset.i];
+    tr.querySelectorAll('[data-k]').forEach(el => el.addEventListener('change', () => { const k = el.dataset.k; d[k] = k === 'on' ? el.checked : el.value.trim(); d._chg = true; DIRTY.d = true; tr.classList.add('chg'); tr.classList.toggle('off', d.on === false); }));
+    tr.querySelector('[data-del]').addEventListener('click', () => { if (!confirm('刪除「' + d.name + '」？（建議改用取消啟用）')) return; DROWS.splice(+tr.dataset.i, 1); DIRTY.d = true; renderDoctors(); });
+  });
+}
+$('#dq').addEventListener('input', renderDoctors);
+$('#dAdd').addEventListener('click', () => { DROWS.unshift({ order: DROWS.reduce((m, d) => Math.max(m, +d.order || 0), 0) + 1, name: '', title: '醫師', home: DF || '', on: true, note: '', _chg: true }); DIRTY.d = true; $('#dq').value = ''; renderDoctors(); $('#dTable tbody input[data-k=name]').focus(); });
+$('#dSave').addEventListener('click', async () => {
+  const rows = DROWS.filter(d => d.name);
+  const dup = rows.map(d => d.name).filter((n, i, a) => a.indexOf(n) !== i);
+  if (dup.length) return toast('醫師姓名重複：' + Array.from(new Set(dup)).join('、'), true);
+  const noHome = rows.filter(d => d.on !== false && !d.home).map(d => d.name);
+  if (noHome.length && !confirm('以下醫師沒有專任院區，產出時會自動以診次最多院區帶入：\n' + noHome.join('、') + '\n\n仍要儲存？')) return;
+  rows.sort((a, b) => (+a.order || 9999) - (+b.order || 9999));
+  busy($('#dSave'), true, '儲存中…');
+  try { await api('saveList', { key: 'doctors', rows: rows.map(d => [d.order, d.name, d.title, d.home, d.on !== false ? 'Y' : 'N', d.note || '']) }); DIRTY.d = false; rows.forEach(d => d._chg = false); DROWS = rows; renderDoctors(); toast('醫師清單已儲存（' + rows.length + ' 位）'); }
+  catch (e) { toast(e.message, true); } finally { busy($('#dSave'), false); }
+});
+
+/* ---------- 院區清單 ---------- */
+function renderClinics() {
+  $('#cTable tbody').innerHTML = CROWS.map((c, i) => '<tr data-i="' + i + '" class="' + (c.on === false ? 'off' : '') + '">' +
+    '<td><input type="number" class="w-s" data-k="order" value="' + esc(c.order) + '"></td>' +
+    '<td><input type="text" class="w-m" data-k="clinic" value="' + esc(c.clinic) + '"></td>' +
+    '<td><input type="text" class="w-m" data-k="tab" value="' + esc(c.tab) + '"></td>' +
+    '<td><input type="checkbox" data-k="on"' + (c.on !== false ? ' checked' : '') + '></td>' +
+    '<td><input type="text" class="w-l" data-k="note" value="' + esc(c.note) + '"></td>' +
+    '<td><button class="btn sm del" data-del="1">刪除</button></td></tr>').join('');
+  $$('#cTable tbody tr').forEach(tr => {
+    const c = CROWS[+tr.dataset.i];
+    tr.querySelectorAll('[data-k]').forEach(el => el.addEventListener('change', () => { const k = el.dataset.k; c[k] = k === 'on' ? el.checked : el.value.trim(); DIRTY.c = true; tr.classList.toggle('off', c.on === false); }));
+    tr.querySelector('[data-del]').addEventListener('click', () => { if (!confirm('刪除「' + c.clinic + '」？')) return; CROWS.splice(+tr.dataset.i, 1); DIRTY.c = true; renderClinics(); });
+  });
+}
+$('#cAdd').addEventListener('click', () => { CROWS.push({ order: CROWS.length + 1, clinic: '', tab: '', on: true, note: '' }); DIRTY.c = true; renderClinics(); });
+$('#cSave').addEventListener('click', async () => {
+  const rows = CROWS.filter(c => c.clinic).map(c => [c.order, c.clinic, c.tab || c.clinic, c.on !== false ? 'Y' : 'N', c.note || '']);
+  busy($('#cSave'), true, '儲存中…');
+  try { await api('saveList', { key: 'clinics', rows }); DIRTY.c = false; toast('院區清單已儲存'); renderDoctors(); }
+  catch (e) { toast(e.message, true); } finally { busy($('#cSave'), false); }
+});
+
+/* ---------- 系統設定 ---------- */
+function renderSettings() {
+  $('#sBox').innerHTML = CFG.settings.map((s, i) => '<div class="l">' + esc(s.label) + '</div><div><input class="inp" data-i="' + i + '" value="' + esc(s.value) + '"></div><div class="d">' + esc(s.desc) + '</div>').join('');
+  preview();
+}
+function curSettings() { return CFG.settings.map((s, i) => ({ key: s.key, value: $('#sBox input[data-i="' + i + '"]').value.trim() })); }
+async function preview() {
+  await E.fontsReady();
+  const st = E.settings(curSettings());
+  const doc = { name: '林秉承', title: '院長', home: '樹林', entries: [
+    { clinic: '樹林', day: 1, sess: '午', s: 780, e: 900, type: '健保' }, { clinic: '樹林', day: 1, sess: '午', s: 780, e: 1140, type: '減重' },
+    { clinic: '土城', day: 5, sess: '午', s: 750, e: 810, type: '減重', alt: true, altText: '隔週休' }, { clinic: '樹林', day: 3, sess: '早', s: 450, e: 600, type: '健保' },
+    { clinic: '樹林', day: 0, sess: '晚', s: 1110, e: 1290, type: '健保' }, { clinic: '土城', day: 6, sess: '早', s: 540, e: 600, type: '健保' }] };
+  const m = new Date(); const ym = m.getFullYear() + '-' + ('0' + (m.getMonth() + 1)).slice(-2);
+  const cv = E.render(doc, { month: ym, date: ym + '-01', settings: st });
+  const pv = $('#sPv'); pv.width = cv.width; pv.height = cv.height; pv.getContext('2d').drawImage(cv, 0, 0);
+}
+$('#sPvBtn').addEventListener('click', preview);
+$('#sSave').addEventListener('click', async () => {
+  busy($('#sSave'), true, '儲存中…');
+  try { await api('saveSettings', { items: curSettings() }); CFG = await api('getConfig'); renderSettings(); toast('設定已儲存'); }
+  catch (e) { toast(e.message, true); } finally { busy($('#sSave'), false); }
+});
+
+/* ---------- 產出紀錄 ---------- */
+async function loadBatches(all) {
+  $('#bTable tbody').innerHTML = '<tr><td colspan="8" class="hint">讀取中…</td></tr>';
+  try {
+    const list = await api('listBatches', all ? {} : { month: $('#bMonth').value });
+    $('#bTable tbody').innerHTML = list.map(b => '<tr><td>' + E.rocMonth(b.month) + '</td><td>' + E.md(b.date) + ' 起</td><td>' + b.count + '</td><td>' + (b.changed === '' ? '<span class="tag g">首版</span>' : '<span class="tag y">' + b.changed + ' 位</span>') + '</td><td>' + (b.sourceUrl ? '<a href="' + esc(b.sourceUrl) + '" target="_blank">' + esc(b.sourceTitle) + '</a>' : esc(b.sourceTitle)) + '</td><td>' + esc(b.user) + '</td><td>' + esc(String(b.time).slice(0, 16)) + '</td><td><button class="btn sm del" data-id="' + esc(b.id) + '">刪除</button></td></tr>').join('') || '<tr><td colspan="8" class="hint">沒有紀錄</td></tr>';
+    $$('#bTable [data-id]').forEach(b => b.addEventListener('click', async () => { if (!confirm('刪除這批產出紀錄？無法復原。')) return; try { await api('deleteBatch', { id: b.dataset.id }); toast('已刪除'); loadBatches(all); } catch (e) { toast(e.message, true); } }));
+  } catch (e) { toast(e.message, true); }
+}
+$('#bMonth').addEventListener('change', () => loadBatches());
+$('#bAll').addEventListener('click', () => loadBatches(true));
+
+/* ---------- 帳號 ---------- */
+$$('#p-account button[data-role]').forEach(b => b.addEventListener('click', async () => {
+  const role = b.dataset.role, u = $(role === 'admin' ? '#aAU' : '#aFU').value.trim(), p = $(role === 'admin' ? '#aAP' : '#aFP').value;
+  if (!u || p.length < 6) return toast('請輸入帳號與至少 6 碼密碼', true);
+  try { const r = await api('changeAccount', { role, user: u, pass: p }); toast(r.msg); setTimeout(() => showLogin('帳號密碼已更新，請重新登入'), 1200); } catch (e) { toast(e.message, true); }
+}));
+
+/* ---------- 操作紀錄 ---------- */
+async function loadLog() {
+  try { const rows = await api('getLog', { limit: 200 }); $('#lTable tbody').innerHTML = rows.map(r => '<tr><td>' + esc(String(r[0]).slice(0, 16)) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td><td style="white-space:normal">' + esc(r[3]) + '</td></tr>').join(''); }
+  catch (e) { toast(e.message, true); }
+}
+
+(function init() {
+  const d = new Date(); $('#bMonth').value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+  if (!HAS_GAS) { $('#noGas').classList.remove('hide'); document.body.classList.remove('locked'); return; }
+  if (!TOKEN) return showLogin();
+  document.body.classList.remove('locked'); boot();
+})();
+</script>
+</body>
+</html>

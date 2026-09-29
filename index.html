@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>金鶯診所˙醫師基準班表系統</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Great+Vibes&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="engine.js"></script>
+<script>
+  /* ====== 後台設定（已寫死，不需每次綁定）======
+   * SHEET_ID：後台 Google Sheet（程式實際寫在 Code.gs，這裡僅供辨識）
+   * GAS_URL ：Apps Script「網頁應用程式」網址，部署後貼上一次即可
+   */
+  const SHEET_ID = '1sVtcHR3SVvu1-r_gM5NmbZIO3Bq0M5fJHJ76bkaEBDI';
+  const GAS_URL  = 'https://script.google.com/macros/s/AKfycbyzBzIiFVENrgDG70xzaVR2SjWz79nbZG6pzqYzibnBtGXSYVqxn2VNbzztYphy5f9y/exec';
+</script>
+<style>
+:root{
+  --bg:#f2f0eb; --card:#fff; --ink:#1d2a28; --muted:#7b7a72; --line:#e3dfd5; --line2:#ece9e1;
+  --brand:#1e3d3a; --brand2:#2b5a54; --brand-soft:#e6efed; --accent:#3aa58f;
+  --ok:#2b7a5f; --ok-soft:#e3f2ea; --warn:#b7791f; --warn-soft:#fbf1dc; --bad:#b42318; --bad-soft:#fbe8e6;
+  --blue-soft:#e8f0fb; --beige:#efebe1; --beige-bd:#d8cfba; --mint:#e1f1ed; --mint-bd:#4d8d80;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;font-size:14px}
+button,input,select{font:inherit;color:inherit}
+header.top{background:var(--brand);color:#fff;display:flex;align-items:center;gap:28px;padding:0 28px;height:64px;position:sticky;top:0;z-index:20}
+.logo{display:flex;align-items:center;gap:12px;font-weight:700;font-size:19px;letter-spacing:.5px;white-space:nowrap}
+.logo img{width:40px;height:40px;border-radius:50%;background:#fff;padding:1px}
+nav.tabs{display:flex;gap:6px}
+nav.tabs button,nav.tabs a{background:none;border:0;color:#cfe0dc;padding:9px 18px;border-radius:9px;cursor:pointer;font-weight:500;text-decoration:none;font-size:15px}
+nav.tabs .on{background:#2f5652;color:#fff}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:#cfe0dc}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;background:#2b4c48}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:#aaa}
+.pill.ok .dot{background:#56d39c}.pill.bad .dot{background:#f07a6a}
+.who{display:flex;align-items:center;gap:8px}
+.who button{background:#2b4c48;border:0;color:#cfe0dc;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:13px}
+.who button:hover{background:#3a615c;color:#fff}
+main{padding:22px 28px 60px;max-width:1680px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px}
+.step{font-size:13px;letter-spacing:1.5px;color:#55605d;font-weight:700;margin:0 0 14px}
+.step b{color:var(--ink)}
+.grid3{display:grid;grid-template-columns:1.25fr 1fr 1.2fr;gap:18px}
+label.f{display:block;font-size:13px;color:#55605d;margin:0 0 6px}
+.inp{width:100%;border:1px solid #d9d4c8;border-radius:10px;padding:10px 12px;background:#fff;outline:none}
+.inp:focus{border-color:var(--brand2);box-shadow:0 0 0 3px #2b5a5422}
+.row{display:flex;gap:10px;align-items:center}
+.row>*{flex:1}
+.mb{margin-bottom:12px}
+.btn{border:1px solid #d9d4c8;background:#fff;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--brand2)}
+.btn.pri{background:var(--brand2);border-color:var(--brand2);color:#fff}
+.btn.pri:hover{background:var(--brand)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--brand2)}
+.btn.sm{padding:5px 11px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.hint{font-size:12.5px;color:var(--muted);line-height:1.6}
+.info{background:var(--brand-soft);color:#24524b;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6;display:flex;gap:8px}
+.warnbox{background:var(--warn-soft);color:#7a5412;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6}
+.okbox{background:var(--ok-soft);color:#1f5e47;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid #d9d4c8;background:#fff;border-radius:99px;padding:5px 12px;cursor:pointer;font-size:13px;font-weight:500}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.chip small{color:inherit;opacity:.7;margin-left:4px}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap}
+.tag.g{background:var(--ok-soft);color:var(--ok)}.tag.y{background:var(--warn-soft);color:var(--warn)}.tag.r{background:var(--bad-soft);color:var(--bad)}.tag.b{background:var(--blue-soft);color:#2f5e9e}.tag.n{background:#f1eee7;color:#6f6a5e}
+table.dt{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px}
+table.dt th{background:#f6f4ef;color:#55605d;font-weight:500;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;z-index:1}
+table.dt td{padding:7px 10px;border-bottom:1px solid var(--line2);white-space:nowrap}
+table.dt tr.sel td{background:#eef6f3}
+table.dt tr:hover td{background:#fbfaf7;cursor:pointer}
+table.dt tr.sel:hover td{background:#e6f1ed}
+table.dt select,table.dt input[type=text]{border:1px solid #d9d4c8;border-radius:8px;padding:4px 6px;background:#fff;max-width:110px}
+table.dt select.auto{background:#fff8e6;border-color:#e8cf8f}
+.tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}
+.ver td{padding:6px 8px}
+.ver select{width:100%;max-width:none!important;min-width:210px;border:1px solid #d9d4c8;border-radius:8px;padding:5px 6px;background:#fff;font-size:13px}
+.ver .why{font-size:12px;color:var(--muted)}
+.work{display:grid;grid-template-columns:minmax(430px,560px) 1fr;gap:18px;align-items:start}
+.pv{position:sticky;top:84px}
+.pv canvas{width:100%;height:auto;border-radius:12px;box-shadow:0 6px 24px #1e3d3a1f;background:#fff;display:block}
+.pv-bar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.pv-bar .nm{font-weight:700;font-size:16px;margin-right:auto}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.gallery figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;cursor:pointer}
+.gallery figure:hover{border-color:var(--brand2)}
+.gallery img{width:100%;display:block;border-radius:8px}
+.gallery figcaption{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:6px 2px 0}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.bar .grow{flex:1}
+.search{border:1px solid #d9d4c8;border-radius:10px;padding:7px 12px;min-width:160px;outline:none}
+.empty-state{padding:60px 20px;text-align:center;color:var(--muted)}
+.toast{position:fixed;right:24px;bottom:24px;background:#1e3d3a;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 8px 24px #0003;opacity:0;transform:translateY(10px);transition:.25s;z-index:99;max-width:440px;line-height:1.6}
+.toast.show{opacity:1;transform:none}.toast.err{background:#9b2c20}
+.hide{display:none!important}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #fff6;border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+details summary{cursor:pointer;color:var(--brand2);font-size:13px}
+.lst{font-size:12.5px;color:#55605d;line-height:1.8;max-height:200px;overflow:auto;margin-top:6px}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:6px}.legend i{width:14px;height:14px;border-radius:4px;display:inline-block}
+.batches{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.bt{border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;background:#fcfbf8}
+.bt:hover{border-color:var(--brand2)}.bt.on{border-color:var(--brand);background:#eef6f3;box-shadow:0 0 0 2px #1e3d3a22}
+.bt .d{font-size:18px;font-weight:700;color:var(--brand)}
+.bt .m{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.6}
+.progress{height:6px;background:#e7e3da;border-radius:99px;overflow:hidden;margin-top:8px}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+@media (max-width:1200px){.grid3{grid-template-columns:1fr}.work{grid-template-columns:1fr}.pv{position:static}}
+@media (max-width:700px){header.top{flex-wrap:wrap;height:auto;padding:10px 16px;gap:8px}main{padding:16px}.top .right{margin-left:0}}
+/* 登入畫面 */
+.login{position:fixed;inset:0;z-index:100;background:linear-gradient(160deg,#1e3d3a 0%,#2b5a54 55%,#f2f0eb 55.1%);display:grid;place-items:center;padding:20px}
+.lg-card{background:#fff;border-radius:22px;padding:36px 34px 30px;width:100%;max-width:400px;box-shadow:0 20px 50px #0003;text-align:center}
+.lg-card img{width:92px;height:92px;border-radius:50%}
+.lg-card h2{margin:14px 0 4px;font-size:21px;color:var(--brand)}
+.lg-card .role{display:inline-block;background:var(--brand-soft);color:var(--brand2);border-radius:99px;padding:3px 12px;font-size:13px;font-weight:500;margin-bottom:20px}
+.lg-card input{width:100%;border:1px solid #d9d4c8;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:15px;outline:none}
+.lg-card input:focus{border-color:var(--brand2);box-shadow:0 0 0 3px #2b5a5422}
+.lg-card button{width:100%;border:0;border-radius:12px;padding:12px;background:var(--brand2);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+.lg-card button:hover{background:var(--brand)}
+.lg-err{color:var(--bad);font-size:13px;min-height:20px;margin-top:10px}
+.lg-note{color:var(--muted);font-size:12px;margin-top:6px;line-height:1.6}
+body.locked header.top,body.locked main{visibility:hidden}
+</style>
+</head>
+<body class="locked">
+<div id="login" class="login hide"><form class="lg-card" id="lgForm" autocomplete="on">
+  <img id="lgLogo" alt="金鶯診所">
+  <h2>金鶯診所˙醫師基準班表系統</h2>
+  <div class="role">前台登入</div>
+  <input id="lgUser" placeholder="帳號" autocomplete="username" required>
+  <input id="lgPass" type="password" placeholder="密碼" autocomplete="current-password" required>
+  <button type="submit" id="lgBtn">登入</button>
+  <div class="lg-err" id="lgErr"></div>
+  <div class="lg-note">需由管理者開通帳號才能使用。閒置 30 分鐘或關閉頁面即自動登出。</div>
+</form></div>
+
+<header class="top">
+  <div class="logo"><img id="hdLogo" alt="">金鶯診所 ˙ 醫師基準班表系統</div>
+  <nav class="tabs">
+    <button data-page="Make" class="on">產出班表</button>
+    <button data-page="History">歷史查詢</button>
+    <a href="admin.html" target="_blank">後台管理 ↗</a>
+  </nav>
+  <div class="right">
+    <span class="pill" id="connPill"><span class="dot"></span><span id="connText">連線中…</span></span>
+    <span class="who"><span id="whoName"></span><button onclick="logout()">登出</button></span>
+  </div>
+</header>
+
+<main>
+<!-- ================= 產出班表 ================= -->
+<section id="pageMake">
+  <div id="noGas" class="warnbox mb hide">尚未設定後台網址（GAS_URL）。部署 Apps Script 後，把網址貼到 index.html 最上方的 GAS_URL 即可使用。</div>
+  <div class="grid3 mb">
+    <div class="card">
+      <p class="step">STEP 1 ˙ <b>讀取集團門診表</b></p>
+      <label class="f">門診表 Google Sheet 連結（每月／有異動時替換）</label>
+      <div class="row mb" style="gap:8px">
+        <input id="srcUrl" class="inp" style="flex:4" placeholder="https://docs.google.com/spreadsheets/d/…">
+        <button class="btn pri" id="btnRead" style="flex:0">讀取門診表</button>
+      </div>
+      <div id="readStatus" class="hint">系統會讀取所有院區分頁，找出每個院區「○○門診 M/D開始」的基準版本；「異動」週不列入基準班表。</div>
+      <details class="hint hide" id="readDetail" style="margin-top:8px"><summary>查看各院區讀取結果</summary><div id="readList" class="lst"></div></details>
+    </div>
+    <div class="card">
+      <p class="step">STEP 2 ˙ <b>班表月份與生效日</b></p>
+      <div class="row mb">
+        <div><label class="f">班表月份</label><input type="month" id="month" class="inp"></div>
+        <div><label class="f">生效日（自此日起算至月底）</label><input type="date" id="effDate" class="inp"></div>
+      </div>
+      <div id="dateChips" class="chips mb"></div>
+      <div class="info"><span>ⓘ</span><span>基準班表以「月」為單位：不論生效日是 10/1、10/15 或 10/20，都只到該月底；下個月請另外產出。月中若有院區換新版本（如「10/15開始」），請再以該日產出一次，系統會標出有異動的醫師。</span></div>
+    </div>
+    <div class="card">
+      <p class="step">STEP 3 ˙ <b>各院區採用版本</b></p>
+      <div id="verBox" class="hint">讀取門診表後顯示。</div>
+    </div>
+  </div>
+
+  <div class="card" id="docCard">
+    <div class="bar">
+      <p class="step" style="margin:0">STEP 4 ˙ <b>醫師個人基準班表</b> <span id="docCount" class="hint"></span></p>
+      <div class="grow"></div>
+      <div class="legend"><span><i style="background:var(--mint);border:1.5px solid var(--mint-bd)"></i>專任院區</span><span><i style="background:var(--beige);border:1.5px solid var(--beige-bd)"></i>非專任院區</span></div>
+    </div>
+    <div id="docEmpty" class="empty-state">完成 STEP 1～3 後，這裡會列出所有醫師的個人基準班表。</div>
+    <div id="docArea" class="hide">
+      <div id="docWarn"></div>
+      <div class="bar">
+        <input id="q" class="search" placeholder="搜尋醫師">
+        <div id="clinicFilter" class="chips"></div>
+        <div class="grow"></div>
+        <button class="btn sm" id="btnView">▦ 全部預覽</button>
+        <button class="btn sm" id="btnDlSel">⬇ 下載勾選（<span id="selN">0</span>）</button>
+        <button class="btn sm" id="btnDlAll">⬇ 全部下載 ZIP</button>
+        <button class="btn sm pri" id="btnSave">⇪ 儲存本次產出到後台</button>
+      </div>
+      <div class="progress hide" id="prog"><i></i></div>
+      <div class="work" id="workList">
+        <div class="tbl-wrap" style="max-height:calc(100vh - 170px)">
+          <table class="dt" id="docTable">
+            <thead><tr><th><input type="checkbox" id="ckAll" title="全選"></th><th>醫師</th><th>職稱</th><th>專任院區</th><th>院區</th><th>與前版</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="pv card" style="padding:14px 16px">
+          <div class="pv-bar"><span class="nm" id="pvName"></span><button class="btn sm" id="pvPrev">‹</button><button class="btn sm" id="pvNext">›</button><button class="btn sm pri" id="pvDl">⬇ 下載 PNG</button></div>
+          <canvas id="pvCanvas" width="10" height="10"></canvas>
+          <div class="hint" id="pvNote" style="margin-top:8px"></div>
+        </div>
+      </div>
+      <div class="gallery hide" id="gallery"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 歷史查詢 ================= -->
+<section id="pageHistory" class="hide">
+  <div class="card mb">
+    <div class="bar">
+      <p class="step" style="margin:0">已儲存的基準班表</p>
+      <input type="month" id="hMonth" class="inp" style="width:180px">
+      <button class="btn sm" id="hAll">顯示全部月份</button>
+      <div class="grow"></div>
+      <span class="hint">同一月份、同一生效日重新儲存會取代舊紀錄。</span>
+    </div>
+    <div id="hList" class="batches"></div>
+  </div>
+  <div class="card hide" id="hDetail">
+    <div class="bar">
+      <p class="step" style="margin:0" id="hTitle"></p>
+      <input id="hq" class="search" placeholder="搜尋醫師">
+      <div class="grow"></div>
+      <button class="btn sm" id="hOnlyChg">只看異動</button>
+      <button class="btn sm pri" id="hDlAll">⬇ 下載這批 ZIP</button>
+    </div>
+    <div class="hint mb" id="hMeta"></div>
+    <div class="gallery" id="hGallery"></div>
+  </div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const HAS_GAS = /^https:\/\/script\.google\.com\//.test(GAS_URL);
+const TOK_KEY = 'ebs_front_token', LOGIN_ROLE = 'front', IDLE_MIN = 30;
+function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', err ? 6500 : 3200); }
+async function api(action, payload) {
+  if (!HAS_GAS) throw new Error('尚未設定後台網址 GAS_URL');
+  const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, payload: payload || {}, token: TOKEN }) });
+  const j = await res.json();
+  if (j.auth) { showLogin(j.error); throw new Error(j.error); }
+  if (!j.ok) throw new Error(j.error || '後台錯誤');
+  return j.data;
+}
+function busy(btn, on, label) { if (!btn) return; if (on) { btn._h = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span> ' + (label || '處理中…'); } else { btn.disabled = false; if (btn._h) btn.innerHTML = btn._h; } }
+
+/* ---------------- 登入 ---------------- */
+let TOKEN = (() => { try { return sessionStorage.getItem(TOK_KEY) || ''; } catch (e) { return ''; } })();
+let WHO = (() => { try { return JSON.parse(sessionStorage.getItem(TOK_KEY + '_who') || 'null'); } catch (e) { return null; } })();
+function showLogin(msg) {
+  TOKEN = ''; clearTimeout(idleTimer); try { sessionStorage.removeItem(TOK_KEY); } catch (e) {}
+  document.body.classList.add('locked'); $('#login').classList.remove('hide'); $('#lgErr').textContent = msg || ''; $('#lgPass').value = ''; setTimeout(() => $('#lgUser').focus(), 50);
+}
+$('#lgLogo').src = E.LOGO; $('#hdLogo').src = E.LOGO;
+$('#lgForm').addEventListener('submit', async ev => {
+  ev.preventDefault(); $('#lgErr').textContent = ''; busy($('#lgBtn'), true, '登入中…');
+  try {
+    if (!HAS_GAS) throw new Error('尚未設定後台網址 GAS_URL');
+    const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'login', payload: { role: LOGIN_ROLE, user: $('#lgUser').value.trim(), pass: $('#lgPass').value } }) });
+    const j = await res.json(); if (!j.ok) throw new Error(j.error);
+    TOKEN = j.data.token; WHO = { user: j.data.user, role: j.data.role };
+    try { sessionStorage.setItem(TOK_KEY, TOKEN); sessionStorage.setItem(TOK_KEY + '_who', JSON.stringify(WHO)); } catch (e) {}
+    $('#login').classList.add('hide'); document.body.classList.remove('locked'); resetIdle(); boot();
+  } catch (e) { $('#lgErr').textContent = e.message; } finally { busy($('#lgBtn'), false); }
+});
+let idleTimer = null;
+function resetIdle() { if (!TOKEN) return; clearTimeout(idleTimer); idleTimer = setTimeout(async () => { try { await api('logout'); } catch (e) {} showLogin('閒置超過 ' + IDLE_MIN + ' 分鐘，已自動登出'); }, IDLE_MIN * 60 * 1000); }
+['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'wheel'].forEach(ev => window.addEventListener(ev, () => { if (Date.now() - (resetIdle._t || 0) > 5000) { resetIdle._t = Date.now(); resetIdle(); } }, { passive: true }));
+async function logout() { try { await api('logout'); } catch (e) {} try { sessionStorage.removeItem(TOK_KEY); sessionStorage.removeItem(TOK_KEY + '_who'); } catch (e) {} location.reload(); }
+
+/* ---------------- 狀態 ---------------- */
+let CFG = { clinics: [], doctors: [], settings: [] }, ST = E.settings();
+let BOOK = null, PARSED = null, PICK = null, OVERRIDE = {}, DOCS = [], PREV = null, CUR = 0, FILTER = '', VIEW = 'list';
+const setConn = (ok, t) => { $('#connPill').className = 'pill ' + (ok ? 'ok' : 'bad'); $('#connText').textContent = t; };
+
+async function boot() {
+  $('#whoName').textContent = WHO ? WHO.user + (WHO.role === 'admin' ? '（管理者）' : '') : '';
+  try {
+    CFG = await api('getConfig');
+    ST = E.settings(CFG.settings);
+    const last = (CFG.settings.find(s => s.key === 'lastUrl') || {}).value;
+    if (last && !$('#srcUrl').value) $('#srcUrl').value = last;
+    setConn(true, '後台已連線');
+  } catch (e) { setConn(false, '後台未連線'); toast(e.message, true); }
+  E.fontsReady();
+}
+
+/* ---------------- 分頁 ---------------- */
+$$('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+  $$('nav.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  $('#pageMake').classList.toggle('hide', b.dataset.page !== 'Make');
+  $('#pageHistory').classList.toggle('hide', b.dataset.page !== 'History');
+  if (b.dataset.page === 'History') loadHistory();
+}));
+
+/* ---------------- STEP 1 讀取 ---------------- */
+$('#btnRead').addEventListener('click', async () => {
+  const url = $('#srcUrl').value.trim();
+  if (!/docs\.google\.com\/spreadsheets/.test(url)) return toast('請貼上 Google Sheet 連結', true);
+  busy($('#btnRead'), true, '讀取中…');
+  $('#readStatus').textContent = '讀取中，院區較多約需 10～30 秒…';
+  try {
+    BOOK = await api('readSchedule', { url });
+    const m = E.monthFromTitle(BOOK.title);
+    if (m) $('#month').value = m;
+    if (!$('#month').value) { const d = new Date(); $('#month').value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 2)).slice(-2); }
+    OVERRIDE = {};
+    $('#effDate').value = $('#month').value + '-01';
+    reparse();
+    toast('已讀取「' + BOOK.title + '」');
+  } catch (e) { $('#readStatus').textContent = '讀取失敗：' + e.message; toast(e.message, true); }
+  finally { busy($('#btnRead'), false); }
+});
+
+function reparse() {
+  if (!BOOK) return;
+  const month = $('#month').value;
+  PARSED = E.parseBook(BOOK, { month, clinics: CFG.clinics.length ? CFG.clinics : null, settings: ST });
+  const nBlocks = PARSED.clinics.reduce((a, c) => a + c.blocks.length, 0);
+  $('#readStatus').innerHTML = '<span class="tag g">讀取完成</span> 「' + esc(BOOK.title) + '」共 ' + PARSED.clinics.length + ' 個院區、' + nBlocks + ' 張班表' +
+    (PARSED.warnings.length ? '<div class="warnbox" style="margin-top:8px">' + PARSED.warnings.map(esc).join('<br>') + '</div>' : '');
+  const missing = CFG.clinics.filter(c => c.on && !PARSED.clinics.some(p => p.clinic === c.clinic)).map(c => c.clinic);
+  if (missing.length) $('#readStatus').innerHTML += '<div class="warnbox" style="margin-top:8px">院區清單中找不到分頁：' + missing.map(esc).join('、') + '（請確認後台「院區清單」的班表分頁名稱）</div>';
+  $('#readDetail').classList.remove('hide');
+  $('#readList').innerHTML = PARSED.clinics.map(c => '<b>' + esc(c.clinic) + '</b>：' + c.blocks.map(b => (b.kind === 'base' ? '' : '<span style="color:#b7791f">') + esc(b.title) + (b.dates.length ? '（' + E.md(b.dates[0]) + '週）' : '') + (b.kind === 'base' ? '' : '</span>')).join('、')).join('<br>');
+  // 生效日快速選
+  const vd = E.versionDates(PARSED);
+  const m1 = month + '-01';
+  const chips = [{ date: m1, clinics: [] }].concat(vd.filter(v => v.date !== m1));
+  $('#dateChips').innerHTML = chips.map(v => '<button class="chip" data-d="' + v.date + '">' + E.md(v.date) + ' 起' + (v.clinics.length ? '<small>' + esc(v.clinics.join('、')) + ' 新版</small>' : '') + '</button>').join('');
+  $$('#dateChips .chip').forEach(b => b.addEventListener('click', () => { $('#effDate').value = b.dataset.d; OVERRIDE = {}; repick(); }));
+  repick();
+}
+
+/* ---------------- STEP 2/3 版本 ---------------- */
+function clampDate() {
+  const m = $('#month').value; if (!m) return;
+  $('#effDate').min = m + '-01'; $('#effDate').max = E.monthEnd(m);
+  if (!$('#effDate').value || $('#effDate').value.slice(0, 7) !== m) $('#effDate').value = m + '-01';
+}
+$('#month').addEventListener('change', () => { clampDate(); OVERRIDE = {}; reparse(); });
+$('#effDate').addEventListener('change', () => { clampDate(); OVERRIDE = {}; repick(); });
+
+function repick() {
+  if (!PARSED) return;
+  clampDate();
+  const date = $('#effDate').value;
+  $$('#dateChips .chip').forEach(b => b.classList.toggle('on', b.dataset.d === date));
+  PICK = E.pickVersions(PARSED, date, OVERRIDE);
+  let h = '<div class="tbl-wrap" style="max-height:300px"><table class="dt ver"><thead><tr><th>院區</th><th>採用版本</th></tr></thead><tbody>';
+  PARSED.clinics.forEach(c => {
+    const cur = PICK.picks[c.clinic];
+    const opts = c.blocks.map(b => '<option value="' + b.index + '"' + (b.index === cur ? ' selected' : '') + '>' + esc(b.title) + (b.dates.length ? '（' + E.md(b.dates[0]) + '週）' : '（第 ' + b.row + ' 列）') + '</option>').join('');
+    const inf = PICK.info[c.clinic];
+    h += '<tr><td><b>' + esc(c.clinic) + '</b></td><td><select data-c="' + esc(c.clinic) + '">' + opts + '</select><div class="why">' + esc(inf.why) + (inf.why.startsWith('⚠') ? '' : '・' + E.md(inf.start) + ' 起') + '</div></td></tr>';
+  });
+  h += '</tbody></table></div>';
+  if (PICK.upcoming.length) h += '<div class="warnbox" style="margin-top:10px">本月生效日之後還有新版本：<br>' + PICK.upcoming.map(u => '・' + E.md(u.date) + ' ' + esc(u.clinic) + '（' + esc(u.title) + '）').join('<br>') + '<br>屆時請以該日期再產出一次。</div>';
+  if (PICK.temps.length) h += '<details style="margin-top:10px"><summary>本月「異動」週共 ' + PICK.temps.length + ' 張（不列入基準班表，以公告為主）</summary><div class="lst">' + PICK.temps.map(t => esc(t.clinic) + '：' + esc(t.title)).join('<br>') + '</div></details>';
+  $('#verBox').innerHTML = h;
+  $$('#verBox select').forEach(s => s.addEventListener('change', () => { OVERRIDE[s.dataset.c] = +s.value; repick(); }));
+  build();
+}
+
+/* ---------------- STEP 4 醫師 ---------------- */
+async function build() {
+  const keep = {};
+  DOCS.forEach(d => { if (d._edited) keep[d.name] = { title: d.title, home: d.home }; });
+  DOCS = E.buildDoctors(PARSED, PICK, CFG.doctors, ST);
+  DOCS.forEach(d => { if (keep[d.name]) Object.assign(d, keep[d.name], { _edited: true }); d._sel = true; });
+  await loadPrev();
+  CUR = 0;
+  $('#docEmpty').classList.add('hide'); $('#docArea').classList.remove('hide');
+  renderFilter(); renderTable(); await E.fontsReady(); showPreview();
+}
+
+/** 找同月份、生效日較早的最近一次產出 → 比對異動 */
+async function loadPrev() {
+  PREV = null;
+  const date = $('#effDate').value, month = $('#month').value;
+  try {
+    const list = (await api('listBatches', { month })).filter(b => b.date < date);
+    if (list.length) {
+      list.sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
+      PREV = await api('getBatch', { id: list[0].id });
+    }
+  } catch (e) { console.warn(e); }
+  compare();
+}
+function compare() {
+  const map = {};
+  if (PREV) PREV.doctors.forEach(d => map[d.name] = d.sig);
+  DOCS.forEach(d => {
+    d.sig = E.sig(d);
+    d.cmp = !PREV ? '' : !(d.name in map) ? '新增' : map[d.name] === d.sig ? '相同' : '異動';
+    if (PREV) d._sel = d.cmp !== '相同';
+  });
+  const warn = [];
+  const news = DOCS.filter(d => d.isNew);
+  if (news.length) warn.push('<div class="warnbox mb">後台醫師清單沒有這些醫師：<b>' + news.map(d => esc(d.name)).join('、') + '</b>。已暫以診次最多的院區為專任院區、職稱為「醫師」。<button class="btn sm" id="btnAddNew" style="margin-left:6px">加入後台醫師清單</button></div>');
+  if (PREV) {
+    const chg = DOCS.filter(d => d.cmp !== '相同').length;
+    const gone = PREV.doctors.filter(p => !DOCS.some(d => d.name === p.name)).map(p => p.name);
+    warn.push('<div class="' + (chg ? 'warnbox' : 'okbox') + ' mb">已與 <b>' + E.md(PREV.meta.date) + ' 起</b> 的產出比對：' + (chg ? '<b>' + chg + '</b> 位醫師有異動或新增，已自動勾選，只需提供這些醫師的新班表。' : '所有醫師班表都沒有變動，這次不用另外提供。') + (gone.length ? '<br>前版有、這次沒有的醫師：' + gone.map(esc).join('、') : '') + '</div>');
+  }
+  const edited = DOCS.filter(d => d._edited);
+  if (edited.length) warn.push('<div class="info mb"><span>✎</span><span>已在這次產出中調整 ' + edited.length + ' 位醫師的職稱／專任院區。' + (WHO && WHO.role === 'admin' ? '<button class="btn sm" id="btnSaveMeta" style="margin-left:6px">寫回後台醫師清單</button>' : '（前台帳號只套用在這次產出；要永久修改請到後台管理）') + '</span></div>');
+  $('#docWarn').innerHTML = warn.join('');
+  const an = $('#btnAddNew'); if (an) an.addEventListener('click', addNewDoctors);
+  const sm = $('#btnSaveMeta'); if (sm) sm.addEventListener('click', saveMeta);
+}
+async function addNewDoctors() {
+  try { const r = await api('addDoctors', { doctors: DOCS.filter(d => d.isNew).map(d => ({ name: d.name, title: d.title, home: d.home })) }); CFG = await api('getConfig'); DOCS.forEach(d => { if (d.isNew) d.isNew = false; }); compare(); toast('已加入 ' + r.added + ' 位醫師到後台，請到後台確認專任院區與職稱'); }
+  catch (e) { toast(e.message, true); }
+}
+async function saveMeta() {
+  const rows = CFG.doctors.map(d => ({ ...d }));
+  DOCS.filter(d => d._edited).forEach(d => {
+    const r = rows.find(x => x.name === d.name);
+    if (r) { r.title = d.title; r.home = d.home; } else rows.push({ order: rows.length + 1, name: d.name, title: d.title, home: d.home, on: true, note: '' });
+  });
+  try {
+    await api('saveList', { key: 'doctors', rows: rows.map(r => [r.order, r.name, r.title, r.home, r.on ? 'Y' : 'N', r.note || '']) });
+    CFG = await api('getConfig'); DOCS.forEach(d => { d._edited = false; d.isNew = false; d.homeAuto = false; }); compare(); renderTable(); toast('已寫回後台醫師清單');
+  } catch (e) { toast(e.message, true); }
+}
+
+function visible() {
+  const q = $('#q').value.trim();
+  return DOCS.filter(d => (!q || d.name.indexOf(q) >= 0) && (!FILTER || d.home === FILTER || d.clinics.indexOf(FILTER) >= 0));
+}
+function renderFilter() {
+  const cl = PARSED.clinics.map(c => c.clinic);
+  $('#clinicFilter').innerHTML = ['全部'].concat(cl).map(c => '<button class="chip' + ((c === '全部' ? '' : c) === FILTER ? ' on' : '') + '" data-c="' + (c === '全部' ? '' : esc(c)) + '">' + esc(c) + '</button>').join('');
+  $$('#clinicFilter .chip').forEach(b => b.addEventListener('click', () => { FILTER = b.dataset.c; renderFilter(); renderTable(); if (VIEW === 'gallery') renderGallery(); }));
+}
+const cmpTag = c => c === '異動' ? '<span class="tag y">異動</span>' : c === '新增' ? '<span class="tag b">新增</span>' : c === '相同' ? '<span class="tag n">相同</span>' : c === '首版' ? '<span class="tag g">首版</span>' : '<span class="hint">—</span>';
+function renderTable() {
+  const list = visible();
+  $('#docCount').textContent = '共 ' + DOCS.length + ' 位醫師' + (list.length !== DOCS.length ? '，顯示 ' + list.length + ' 位' : '');
+  const clinics = PARSED.clinics.map(c => c.clinic);
+  const titles = Array.from(new Set(E.TITLES.concat(CFG.doctors.map(d => d.title)).filter(Boolean)));
+  $('#docTable tbody').innerHTML = list.map(d => {
+    const i = DOCS.indexOf(d);
+    const tOpts = titles.concat(titles.indexOf(d.title) < 0 ? [d.title] : []).map(t => '<option' + (t === d.title ? ' selected' : '') + '>' + esc(t) + '</option>').join('');
+    const hOpts = clinics.map(c => '<option' + (c === d.home ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
+    return '<tr data-i="' + i + '"' + (i === CUR ? ' class="sel"' : '') + '><td><input type="checkbox" class="ck"' + (d._sel ? ' checked' : '') + '></td><td><b>' + esc(d.name) + '</b>' + (d.isNew ? ' <span class="tag r">未建檔</span>' : '') + '</td>' +
+      '<td><select class="t">' + tOpts + '</select></td><td><select class="h' + (d.homeAuto ? ' auto" title="後台尚未設定，暫以診次最多院區帶入' : '') + '">' + hOpts + '</select></td>' +
+      '<td class="hint">' + d.clinics.map(esc).join('、') + '</td><td>' + cmpTag(d.cmp) + '</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="empty-state">沒有符合的醫師</td></tr>';
+  $$('#docTable tbody tr[data-i]').forEach(tr => {
+    const d = DOCS[+tr.dataset.i];
+    tr.addEventListener('click', ev => { if (ev.target.closest('select,input')) return; CUR = +tr.dataset.i; $$('#docTable tr.sel').forEach(x => x.classList.remove('sel')); tr.classList.add('sel'); showPreview(); });
+    tr.querySelector('.ck').addEventListener('change', e => { d._sel = e.target.checked; updSel(); });
+    tr.querySelector('.t').addEventListener('change', e => { d.title = e.target.value; edited(d, tr); });
+    tr.querySelector('.h').addEventListener('change', e => { d.home = e.target.value; d.homeAuto = false; e.target.classList.remove('auto'); edited(d, tr); });
+  });
+  updSel();
+}
+function edited(d, tr) { d._edited = true; CUR = +tr.dataset.i; compare(); $$('#docTable tr.sel').forEach(x => x.classList.remove('sel')); tr.classList.add('sel'); tr.querySelector('td:last-child').innerHTML = cmpTag(d.cmp); showPreview(); }
+function updSel() { $('#selN').textContent = DOCS.filter(d => d._sel).length; const v = visible(); $('#ckAll').checked = v.length && v.every(d => d._sel); }
+$('#ckAll').addEventListener('change', e => { visible().forEach(d => d._sel = e.target.checked); renderTable(); });
+$('#q').addEventListener('input', () => { renderTable(); if (VIEW === 'gallery') renderGallery(); });
+
+const opts = () => ({ month: $('#month').value, date: $('#effDate').value, settings: ST });
+function showPreview() {
+  const d = DOCS[CUR]; if (!d) return;
+  const cv = E.render(d, opts());
+  const pv = $('#pvCanvas'); pv.width = cv.width; pv.height = cv.height; pv.getContext('2d').drawImage(cv, 0, 0);
+  $('#pvName').textContent = d.name + ' ' + d.title;
+  const sp = d.entries.filter(e => e.type !== '健保').length, alt = d.entries.filter(e => e.alt).length;
+  $('#pvNote').textContent = '專任院區：' + d.home + (d.homeAuto ? '（後台未設定，暫以診次最多院區帶入）' : '') + '・共 ' + d.entries.length + ' 個診' + (sp ? '，其中特別門診 ' + sp : '') + (alt ? '，隔週休 ' + alt : '');
+}
+function step(k) { const v = visible(); if (!v.length) return; let i = v.indexOf(DOCS[CUR]); i = (i + k + v.length) % v.length; CUR = DOCS.indexOf(v[i]); renderTable(); showPreview(); const tr = $('#docTable tr.sel'); if (tr) tr.scrollIntoView({ block: 'nearest' }); }
+$('#pvPrev').addEventListener('click', () => step(-1)); $('#pvNext').addEventListener('click', () => step(1));
+$('#pvDl').addEventListener('click', () => { const d = DOCS[CUR]; if (d) dlOne(d, opts()); });
+
+$('#btnView').addEventListener('click', () => { VIEW = VIEW === 'list' ? 'gallery' : 'list'; $('#btnView').textContent = VIEW === 'list' ? '▦ 全部預覽' : '☰ 清單模式'; $('#workList').classList.toggle('hide', VIEW !== 'list'); $('#gallery').classList.toggle('hide', VIEW === 'list'); if (VIEW === 'gallery') renderGallery(); });
+function renderGallery() { galleryInto($('#gallery'), visible(), opts(), d => { CUR = DOCS.indexOf(d); $('#btnView').click(); showPreview(); renderTable(); }); }
+function galleryInto(el, list, o, onClick) {
+  el.innerHTML = '';
+  list.forEach(d => {
+    const f = document.createElement('figure');
+    const cv = E.render(d, Object.assign({}, o, { scale: 1 }));
+    f.innerHTML = '<img alt=""><figcaption><b>' + esc(d.name) + ' ' + esc(d.title) + '</b>' + cmpTag(d.cmp) + '</figcaption>';
+    f.querySelector('img').src = cv.toDataURL('image/png');
+    f.addEventListener('click', () => onClick(d));
+    el.appendChild(f);
+  });
+}
+
+/* ---------------- 下載 ---------------- */
+async function dlOne(d, o) { await E.fontsReady(); const b = await E.toBlob(E.render(d, o)); saveBlob(b, E.fileName(d)); }
+function saveBlob(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }
+async function dlZip(list, o, name) {
+  if (!list.length) return toast('沒有要下載的醫師', true);
+  await E.fontsReady();
+  const zip = new JSZip(), p = $('#prog'); p.classList.remove('hide');
+  for (let i = 0; i < list.length; i++) {
+    zip.file(E.fileName(list[i]), await E.toBlob(E.render(list[i], o)));
+    p.firstElementChild.style.width = Math.round((i + 1) / list.length * 100) + '%';
+    await new Promise(r => setTimeout(r, 0));
+  }
+  saveBlob(await zip.generateAsync({ type: 'blob' }), name);
+  setTimeout(() => { p.classList.add('hide'); p.firstElementChild.style.width = 0; }, 800);
+}
+const zipName = (m, d) => E.rocMonth(m) + ' 醫師門診表' + (+d.slice(8) !== 1 ? '（' + E.md(d).replace('/', '-') + '起）' : '') + '.zip';
+$('#btnDlAll').addEventListener('click', () => dlZip(DOCS, opts(), zipName($('#month').value, $('#effDate').value)));
+$('#btnDlSel').addEventListener('click', () => { const l = DOCS.filter(d => d._sel); if (l.length === 1) return dlOne(l[0], opts()); dlZip(l, opts(), zipName($('#month').value, $('#effDate').value)); });
+
+/* ---------------- 儲存 ---------------- */
+$('#btnSave').addEventListener('click', async () => {
+  if (!DOCS.length) return;
+  const month = $('#month').value, date = $('#effDate').value;
+  if (!confirm('把 ' + E.md(date) + ' 起的基準班表（' + DOCS.length + ' 位醫師）儲存到後台？\n同月份、同生效日的舊紀錄會被取代。')) return;
+  busy($('#btnSave'), true, '儲存中…');
+  try {
+    const versions = {};
+    PARSED.clinics.forEach(c => { const b = c.blocks[PICK.picks[c.clinic]]; versions[c.clinic] = b.title + (b.dates.length ? '（' + E.md(b.dates[0]) + '週）' : ''); });
+    const r = await api('saveBatch', {
+      month, date, sourceTitle: BOOK.title, sourceUrl: $('#srcUrl').value.trim(), versions, hasPrev: !!PREV,
+      doctors: DOCS.map(d => ({ name: d.name, title: d.title, home: d.home, cmp: d.cmp || '首版', sig: E.sig(d), entries: d.entries }))
+    });
+    toast('已儲存（批次 ' + r.id + (r.replaced ? '，已取代舊紀錄' : '') + '）');
+  } catch (e) { toast(e.message, true); } finally { busy($('#btnSave'), false); }
+});
+
+/* ---------------- 歷史查詢 ---------------- */
+let HB = null, HONLY = false;
+async function loadHistory(all) {
+  $('#hList').innerHTML = '<div class="hint">讀取中…</div>';
+  try {
+    const list = await api('listBatches', all ? {} : { month: $('#hMonth').value });
+    $('#hList').innerHTML = list.map(b => '<div class="bt" data-id="' + esc(b.id) + '"><div class="d">' + E.rocMonth(b.month) + '・' + E.md(b.date) + ' 起</div><div class="m">' + b.count + ' 位醫師' + (b.changed !== '' && b.changed !== undefined ? '・異動 ' + b.changed + ' 位' : '・首版') + '<br>' + esc(b.user) + '・' + esc(String(b.time).slice(0, 16)) + '<br>來源：' + esc(b.sourceTitle) + '</div></div>').join('') || '<div class="empty-state">這個月份還沒有儲存紀錄</div>';
+    $$('#hList .bt').forEach(el => el.addEventListener('click', () => openBatch(el.dataset.id)));
+  } catch (e) { $('#hList').innerHTML = '<div class="warnbox">' + esc(e.message) + '</div>'; }
+}
+$('#hMonth').addEventListener('change', () => loadHistory());
+$('#hAll').addEventListener('click', () => loadHistory(true));
+async function openBatch(id) {
+  $$('#hList .bt').forEach(el => el.classList.toggle('on', el.dataset.id === id));
+  try {
+    HB = await api('getBatch', { id });
+    HB.doctors.forEach(d => { d.clinics = Array.from(new Set(d.entries.map(e => e.clinic))); });
+    $('#hDetail').classList.remove('hide');
+    $('#hTitle').innerHTML = E.rocMonth(HB.meta.month) + ' 醫師門診表・<b>' + E.md(HB.meta.date) + ' 起</b>';
+    const v = HB.meta.versions || {};
+    $('#hMeta').innerHTML = '產出：' + esc(HB.meta.user) + '・' + esc(String(HB.meta.time).slice(0, 16)) + '・來源：' + (HB.meta.sourceUrl ? '<a href="' + esc(HB.meta.sourceUrl) + '" target="_blank">' + esc(HB.meta.sourceTitle) + '</a>' : esc(HB.meta.sourceTitle)) +
+      '<details><summary>各院區採用版本</summary><div class="lst">' + Object.keys(v).map(k => esc(k) + '：' + esc(v[k])).join('<br>') + '</div></details>';
+    await E.fontsReady(); renderHGallery();
+  } catch (e) { toast(e.message, true); }
+}
+const hOpts = () => ({ month: HB.meta.month, date: HB.meta.date, settings: ST });
+function hList() { const q = $('#hq').value.trim(); return HB.doctors.filter(d => (!q || d.name.indexOf(q) >= 0) && (!HONLY || (d.cmp && d.cmp !== '相同'))); }
+function renderHGallery() { galleryInto($('#hGallery'), hList(), hOpts(), d => dlOne(d, hOpts())); }
+$('#hq').addEventListener('input', () => HB && renderHGallery());
+$('#hOnlyChg').addEventListener('click', () => { HONLY = !HONLY; $('#hOnlyChg').classList.toggle('pri', HONLY); if (HB) renderHGallery(); });
+$('#hDlAll').addEventListener('click', () => HB && dlZip(hList(), hOpts(), zipName(HB.meta.month, HB.meta.date)));
+
+/* ---------------- 啟動 ---------------- */
+(function init() {
+  const d = new Date(); $('#hMonth').value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+  if (!HAS_GAS) { $('#noGas').classList.remove('hide'); document.body.classList.remove('locked'); setConn(false, '未設定後台'); return; }
+  if (!TOKEN) return showLogin();
+  document.body.classList.remove('locked'); resetIdle(); boot();
+})();
+</script>
+</body>
+</html>
