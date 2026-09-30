@@ -1,5 +1,5 @@
 /* =====================================================================
- * 金鶯診所˙醫師基準班表系統 — 共用核心 engine.js
+ * 金鶯診所 · 醫師基準班表系統 — 共用核心 engine.js
  *  - 解析集團門診表（Google Sheet 各院區分頁）
  *  - 判定各院區適用的「基準版本」（XX門診 M/D開始）
  *  - 彙整每位醫師的個人基準班表
@@ -402,9 +402,9 @@
 
   /* ------------------------- 圖卡繪製 ------------------------- */
   const C = {
-    bg: '#ffffff', ink: '#16302b', ink2: '#24514a', muted: '#5f6b68', head: '#2f5a50', headInk: '#ffffff',
-    empty: '#eceff0', homeBg: '#d9efe8', homeBd: '#2f7a6b', homeInk: '#12302a', rowInk: '#4d5a57',
-    othBg: '#f2e9d5', othBd: '#c4b184', othInk: '#4f4228', bar: '#2f7a6b'
+    bg: '#f8faf9', ink: '#16302b', ink2: '#24514a', muted: '#5f6b68', head: '#2f5a50', headInk: '#ffffff',
+    empty: '#eaeeed', homeBg: '#d9efe8', homeBd: '#2f7a6b', homeInk: '#12302a', rowInk: '#4d5a57',
+    othBg: '#f4ede6', othBd: '#a98468', othInk: '#5b3f2c', bar: '#2f7a6b', blob: '#b8cbc5'
   };
   E.COLORS = C;
   const FONT = '"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif';
@@ -454,7 +454,7 @@
     o = o || {};
     const st = o.settings || E.settings();
     const scale = o.scale || 2;
-    const W = 1000, P = 40, LW = 54, GAP = 8;
+    const W = 1000, P = 40, LW = 44, GAP = 8;
     const colW = (W - P * 2 - LW - GAP * 7) / 7;
     const cells = E.cells(doc);
     // 列高
@@ -479,6 +479,10 @@
     ctx.textBaseline = 'alphabetic';
     // 背景
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = C.blob; ctx.globalAlpha = .28;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(150, 0); ctx.bezierCurveTo(120, 40, 70, 30, 40, 70); ctx.bezierCurveTo(20, 95, 15, 120, 0, 140); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(W, H); ctx.lineTo(W - 170, H); ctx.bezierCurveTo(W - 130, H - 40, W - 80, H - 30, W - 45, H - 70); ctx.bezierCurveTo(W - 20, H - 100, W - 12, H - 125, W, H - 150); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
     // 浮水印
     if (logoImg && st.watermark > 0) {
       const sz = Math.min(gridH * .92, 520);
@@ -532,8 +536,9 @@
     let y = gridY;
     cells.forEach((row, si) => {
       const h = rowH[si];
-      ctx.fillStyle = C.rowInk; ctx.font = '700 18px ' + FONT; ctx.textAlign = 'center';
-      ctx.fillText(E.SESS[si] + '診', P + LW / 2 - 2, y + h / 2 + 6);
+      ctx.fillStyle = C.rowInk; ctx.font = '700 19px ' + FONT; ctx.textAlign = 'center';
+      ctx.fillText(E.SESS[si], P + LW / 2 - 4, y + h / 2 - 3);          // 直立：早 / 診
+      ctx.fillText('診', P + LW / 2 - 4, y + h / 2 + 21);
       row.forEach((list, di) => {
         const cx = P + LW + GAP + di * (colW + GAP);
         if (!list.length) { ctx.fillStyle = C.empty; rr(ctx, cx, y, colW, h, 12); ctx.fill(); return; }
