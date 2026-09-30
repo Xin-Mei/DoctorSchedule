@@ -341,9 +341,44 @@
     return out;
   }
 
-  E.buildDoctors = function (parsed, picks, meta, st, rules) {
+  /* ------------------------- 班表微調 ------------------------- */
+  /** 後台「班表微調」列 → [{doctor, day, clinic, type, s, e, action, ns, ne}] */
+  const SESS_ACT = { '移到早診': '早', '移到午診': '午', '移到晚診': '晚' };
+  E.ACTIONS = ['移到早診', '移到午診', '移到晚診', '改時間', '刪除', '新增'];
+  E.normAdjust = function (rows) {
+    const dayIdx = t => { t = String(t || '').trim(); if (!t || /每|全/.test(t)) return -1; const ch = t.slice(-1); return '一二三四五六日'.indexOf(ch === '天' ? '日' : ch); };
+    const rng = t => { const r = ranges(t); return r ? r[0] : null; };
+    return (rows || []).filter(r => r && r.doctor && r.on !== false && r.action).map(r => {
+      const o = rng(r.time), n = rng(r.newTime);
+      return { doctor: String(r.doctor).trim(), day: dayIdx(r.day), clinic: String(r.clinic || '').trim(), type: String(r.type || '').trim(), s: o ? o.s : null, e: o ? o.e : null, action: String(r.action).trim(), ns: n ? n.s : null, ne: n ? n.e : null, alt: /隔週/.test(r.note || '') };
+    }).filter(a => a.day >= -1);
+  };
+  function applyAdjust(list, adj) {
+    if (!adj.length) return list;
+    let out = list.slice();
+    adj.forEach(a => {
+      const hit = e => (a.day < 0 || e.day === a.day) && (!a.clinic || e.clinic === a.clinic) && (!a.type || e.type === a.type || (a.type === '健保' && e.type === '健保')) && (a.s === null || (e.s < a.e && e.e > a.s));
+      if (a.action === '新增') {
+        if (a.s === null || a.day < 0 || !a.clinic) return;
+        const sess = { '早': '早', '午': '午', '晚': '晚' }[a.type] || '';
+        out.push({ doctor: a.doctor, clinic: a.clinic, day: a.day, s: a.s, e: a.e, sess: sess || (a.s >= 1020 ? '晚' : a.s >= 720 ? '午' : '早'), type: a.type && !/^[早午晚]$/.test(a.type) ? a.type : '健保', alt: a.alt, altText: a.alt ? '隔週休' : '', adjusted: true });
+        return;
+      }
+      out = out.flatMap(e => {
+        if (!hit(e)) return [e];
+        if (a.action === '刪除') return [];
+        if (SESS_ACT[a.action]) return [Object.assign({}, e, { sess: SESS_ACT[a.action], adjusted: true })];
+        if (a.action === '改時間' && a.ns !== null) return [Object.assign({}, e, { s: a.ns, e: a.ne, adjusted: true })];
+        return [e];
+      });
+    });
+    return out;
+  }
+
+  E.buildDoctors = function (parsed, picks, meta, st, rules, adjust) {
     st = st || E.settings();
     rules = rules || [];
+    adjust = adjust || [];
     const metaMap = {};
     (meta || []).forEach(m => { if (m.name) metaMap[m.name] = m; });
     const all = [];
@@ -363,11 +398,28 @@
         else { map[k].alt = map[k].alt && e.alt; if (!map[k].altText) map[k].altText = e.altText; }
       });
       let list = Object.values(map);
-      // 特別門診完全包含在同院區同日的健保門診內 → 不另外顯示
+      // 特別門診與同院區、同一天的健保門診重疊 → 重疊部分不顯示
+      //   完全落在健保門診內（含前後相連的兩段，例：14:30-18:30＋18:30-21:30）→ 整筆不顯示
+      //   部分重疊 → 只留沒重疊的部分（例：減重 13:00-19:00、健保 13:00-15:00 → 減重 15:00-19:00）
       if (String(st.containHide).toUpperCase() !== 'N') {
         const reg = list.filter(e => e.type === '健保');
-        list = list.filter(e => e.type === '健保' || !reg.some(r => r.clinic === e.clinic && r.day === e.day && r.s <= e.s && r.e >= e.e));
+        const out = [];
+        list.forEach(e => {
+          if (e.type === '健保') { out.push(e); return; }
+          let pieces = [[e.s, e.e]];
+          reg.filter(r => r.clinic === e.clinic && r.day === e.day).forEach(r => {
+            const next = [];
+            pieces.forEach(([a, b]) => { if (r.e <= a || r.s >= b) next.push([a, b]); else { if (a < r.s) next.push([a, r.s]); if (b > r.e) next.push([r.e, b]); } });
+            pieces = next;
+          });
+          pieces.forEach(([a, b]) => {
+            if (a === e.s && b === e.e) out.push(e);
+            else out.push(Object.assign({}, e, { s: a, e: b, sess: sessByTime(a, st), trimmed: true }));
+          });
+        });
+        list = out;
       }
+      list = applyAdjust(list, adjust.filter(a => a.doctor === name));
       list.sort((a, b) => a.day - b.day || E.SESS.indexOf(a.sess) - E.SESS.indexOf(b.sess) || a.s - b.s || (a.type === '健保' ? -1 : 1));
       const auto = autoHome(list);
       const d = {
@@ -456,9 +508,9 @@
   // 單一門診在格子內的高度（大字直式 / 精簡橫式）
   // big＝一格一個門診；narrow＝一格兩個門診（左右直切）；sm＝三個以上（上下堆疊）
   const SPEC = {
-    big:    { lab: 20, sub: 15, alt: 14, t: 19, gap: 6, pad: 24, vertical: true, twoLine: false },
+    big:    { lab: 20, sub: 15, alt: 20, t: 19, gap: 6, pad: 24, vertical: true, twoLine: false },
     narrow: { lab: 16, sub: 13, alt: 11.5, t: 15, gap: 4, pad: 20, vertical: true, twoLine: true },
-    sm:     { lab: 16, sub: 13, alt: 12.5, t: 15, gap: 4, pad: 16, vertical: false, twoLine: false }
+    sm:     { lab: 16, sub: 13, alt: 16, t: 15, gap: 4, pad: 16, vertical: false, twoLine: false }
   };
   // 兩個以上一律上下堆疊（橫的）；若要改回左右直切，把下一行改成 n === 2 ? 'narrow' : 'sm'
   const modeOf = n => (n === 1 ? 'big' : 'sm');

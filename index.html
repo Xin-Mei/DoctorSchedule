@@ -393,7 +393,7 @@ function repick() {
 async function build() {
   const keep = {};
   DOCS.forEach(d => { if (d._edited) keep[d.name] = { title: d.title, home: d.home }; });
-  DOCS = E.buildDoctors(PARSED, PICK, CFG.doctors, ST, E.normRules(CFG.rules));
+  DOCS = E.buildDoctors(PARSED, PICK, CFG.doctors, ST, E.normRules(CFG.rules), E.normAdjust(CFG.adjust));
   DOCS.forEach(d => { if (keep[d.name]) Object.assign(d, keep[d.name], { _edited: true }); d._sel = true; });
   await loadPrev();
   CUR = 0;
@@ -496,7 +496,7 @@ function showPreview() {
   const pv = $('#pvCanvas'); pv.width = cv.width; pv.height = cv.height; pv.getContext('2d').drawImage(cv, 0, 0);
   $('#pvName').textContent = d.name + ' ' + d.title;
   const sp = d.entries.filter(e => e.type !== '健保').length, alt = d.entries.filter(e => e.alt).length;
-  $('#pvNote').textContent = '專任院區：' + d.home + (d.homeAuto ? '（後台未設定，暫以診次最多院區帶入）' : '') + '・共 ' + d.entries.length + ' 個診' + (sp ? '，其中特別門診 ' + sp : '') + (alt ? '，隔週休 ' + alt : '') + (E.normRules(CFG.rules).some(r => r.doctor === d.name) ? '・已套用拆班規則' : '');
+  $('#pvNote').textContent = '專任院區：' + d.home + (d.homeAuto ? '（後台未設定，暫以診次最多院區帶入）' : '') + '・共 ' + d.entries.length + ' 個診' + (sp ? '，其中特別門診 ' + sp : '') + (alt ? '，隔週休 ' + alt : '') + (E.normRules(CFG.rules).some(r => r.doctor === d.name) ? '・已套用拆班規則' : '') + (E.normAdjust(CFG.adjust).some(r => r.doctor === d.name) ? '・已套用班表微調' : '');
 }
 function step(k) { const v = visible(); if (!v.length) return; let i = v.indexOf(DOCS[CUR]); i = (i + k + v.length) % v.length; CUR = DOCS.indexOf(v[i]); renderTable(); showPreview(); const tr = $('#docTable tr.sel'); if (tr) tr.scrollIntoView({ block: 'nearest' }); }
 $('#pvPrev').addEventListener('click', () => step(-1)); $('#pvNext').addEventListener('click', () => step(1));
