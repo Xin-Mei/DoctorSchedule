@@ -3,32 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>金鶯診所 · 醫師基準班表系統</title>
+<title>金鶯診所 · 醫師回診率分析系統</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Great+Vibes&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="engine.js"></script>
 <script>
   /* ====== 後台設定（已寫死，不需每次綁定）======
-   * SHEET_ID：後台 Google Sheet（程式實際寫在 Code.gs，這裡僅供辨識）
+   * SHEET_ID：後台 Google Sheet
    * GAS_URL ：Apps Script「網頁應用程式」網址，部署後貼上一次即可
    */
-  const SHEET_ID = '1sVtcHR3SVvu1-r_gM5NmbZIO3Bq0M5fJHJ76bkaEBDI';
-  const GAS_URL  = 'https://script.google.com/macros/s/AKfycbyzBzIiFVENrgDG70xzaVR2SjWz79nbZG6pzqYzibnBtGXSYVqxn2VNbzztYphy5f9y/exec';
+  const SHEET_ID = '1E87f9NKzV46IT7ReUf1ZFkg-l2vj-m7b-S63-1XRO5s';
+  const GAS_URL  = 'https://script.google.com/macros/s/AKfycbxt1MuUkDj8osmkEO7n0hWpgqQkok73N_Jk4EPDv9nVEvaco0rCKCNspCDfzZ81SkMRMw/exec';
 </script>
 <style>
 :root{
   --bg:#f2f0eb; --card:#fff; --ink:#1d2a28; --muted:#7b7a72; --line:#e3dfd5; --line2:#ece9e1;
   --brand:#1e3d3a; --brand2:#2b5a54; --brand-soft:#e6efed; --accent:#3aa58f;
   --ok:#2b7a5f; --ok-soft:#e3f2ea; --warn:#b7791f; --warn-soft:#fbf1dc; --bad:#b42318; --bad-soft:#fbe8e6;
-  --blue-soft:#e8f0fb; --beige:#efebe1; --beige-bd:#d8cfba; --mint:#e1f1ed; --mint-bd:#4d8d80;
+  --purple-soft:#efeafb; --blue-soft:#e8f0fb;
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;font-size:14px}
 button,input,select{font:inherit;color:inherit}
 header.top{background:var(--brand);color:#fff;display:flex;align-items:center;gap:28px;padding:0 28px;height:64px;position:sticky;top:0;z-index:20}
 .logo{display:flex;align-items:center;gap:12px;font-weight:700;font-size:19px;letter-spacing:.5px;white-space:nowrap}
-.logo img{width:40px;height:40px;border-radius:50%;background:#fff;padding:1px}
+.logo i{width:34px;height:34px;border-radius:9px;background:#4fb8a0;display:grid;place-items:center;font-style:normal;font-size:22px;font-weight:500}
 nav.tabs{display:flex;gap:6px}
 nav.tabs button,nav.tabs a{background:none;border:0;color:#cfe0dc;padding:9px 18px;border-radius:9px;cursor:pointer;font-weight:500;text-decoration:none;font-size:15px}
 nav.tabs .on{background:#2f5652;color:#fff}
@@ -36,14 +37,11 @@ nav.tabs .on{background:#2f5652;color:#fff}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;background:#2b4c48}
 .pill .dot{width:8px;height:8px;border-radius:50%;background:#aaa}
 .pill.ok .dot{background:#56d39c}.pill.bad .dot{background:#f07a6a}
-.who{display:flex;align-items:center;gap:8px}
-.who button{background:#2b4c48;border:0;color:#cfe0dc;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:13px}
-.who button:hover{background:#3a615c;color:#fff}
 main{padding:22px 28px 60px;max-width:1680px;margin:0 auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px}
 .step{font-size:13px;letter-spacing:1.5px;color:#55605d;font-weight:700;margin:0 0 14px}
 .step b{color:var(--ink)}
-.grid3{display:grid;grid-template-columns:1.25fr 1fr 1.2fr;gap:18px}
+.grid3{display:grid;grid-template-columns:1.1fr 1.2fr 1fr;gap:18px}
 label.f{display:block;font-size:13px;color:#55605d;margin:0 0 6px}
 .inp{width:100%;border:1px solid #d9d4c8;border-radius:10px;padding:10px 12px;background:#fff;outline:none}
 .inp:focus{border-color:var(--brand2);box-shadow:0 0 0 3px #2b5a5422}
@@ -60,57 +58,106 @@ label.f{display:block;font-size:13px;color:#55605d;margin:0 0 6px}
 .hint{font-size:12.5px;color:var(--muted);line-height:1.6}
 .info{background:var(--brand-soft);color:#24524b;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6;display:flex;gap:8px}
 .warnbox{background:var(--warn-soft);color:#7a5412;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6}
-.okbox{background:var(--ok-soft);color:#1f5e47;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{border:1px solid #d9d4c8;background:#fff;border-radius:99px;padding:5px 12px;cursor:pointer;font-size:13px;font-weight:500}
+.drop{border:2px dashed #cfc9bb;border-radius:14px;padding:22px 16px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s;background:#faf9f6}
+.drop.hover{border-color:var(--accent);background:#eef8f5;color:var(--brand2)}
+#dropAll b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 16px}
+.chip{border:1px solid #d9d4c8;background:#fff;border-radius:11px;padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:500}
+.chip .s{width:9px;height:9px;border-radius:50%;background:#cfcabd}
+.chip.st-file .s{background:#e0a32e}.chip.st-saved .s{background:#2fa074}
 .chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
-.chip small{color:inherit;opacity:.7;margin-left:4px}
-.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap}
-.tag.g{background:var(--ok-soft);color:var(--ok)}.tag.y{background:var(--warn-soft);color:var(--warn)}.tag.r{background:var(--bad-soft);color:var(--bad)}.tag.b{background:var(--blue-soft);color:#2f5e9e}.tag.n{background:#f1eee7;color:#6f6a5e}
+.legend{display:flex;gap:16px;font-size:12.5px;color:var(--muted);margin-left:auto}
+.legend span{display:flex;align-items:center;gap:6px}.legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.panel{display:grid;grid-template-columns:320px 1fr;gap:18px}
+.slot{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:#fcfbf8}
+.slot .t{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:6px}
+.slot .fn{font-size:13px;color:var(--brand2);word-break:break-all}
+.slot .empty{font-size:13px;color:var(--muted)}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:500}
+.tag.g{background:var(--ok-soft);color:var(--ok)}.tag.y{background:var(--warn-soft);color:var(--warn)}.tag.r{background:var(--bad-soft);color:var(--bad)}.tag.p{background:var(--purple-soft);color:#6146a8}.tag.b{background:var(--blue-soft);color:#2f5e9e}
 table.dt{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px}
-table.dt th{background:#f6f4ef;color:#55605d;font-weight:500;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;z-index:1}
-table.dt td{padding:7px 10px;border-bottom:1px solid var(--line2);white-space:nowrap}
-table.dt tr.sel td{background:#eef6f3}
-table.dt tr:hover td{background:#fbfaf7;cursor:pointer}
-table.dt tr.sel:hover td{background:#e6f1ed}
-table.dt select,table.dt input[type=text]{border:1px solid #d9d4c8;border-radius:8px;padding:4px 6px;background:#fff;max-width:110px}
-table.dt select.auto{background:#fff8e6;border-color:#e8cf8f}
+table.dt th{background:#f6f4ef;color:#55605d;font-weight:500;text-align:right;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0}
+table.dt th:first-child,table.dt td:first-child{text-align:left}
+table.dt td{padding:8px 10px;border-bottom:1px solid var(--line2);text-align:right;white-space:nowrap}
+table.dt tr:hover td{background:#fbfaf7}
+table.dt input{width:84px;text-align:right;border:1px solid #d9d4c8;border-radius:8px;padding:6px 8px;background:#fff}
+table.dt input.auto{background:#f3f8f6;border-color:#cfe3dc}
+table.dt input.man{background:#fff8e6;border-color:#e8cf8f}
+table.dt td.k{font-weight:700;color:var(--ink)}
+table.dt td.m{color:var(--muted)}
 .tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}
-.ver td{padding:6px 8px}
-.ver select{width:100%;max-width:none!important;min-width:210px;border:1px solid #d9d4c8;border-radius:8px;padding:5px 6px;background:#fff;font-size:13px}
-.ver .why{font-size:12px;color:var(--muted)}
-.work{display:grid;grid-template-columns:minmax(430px,560px) 1fr;gap:18px;align-items:start}
-.pv{position:sticky;top:84px}
-.pv canvas{width:100%;height:auto;border-radius:12px;box-shadow:0 6px 24px #1e3d3a1f;background:#fff;display:block}
-.pv-bar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
-.pv-bar .nm{font-weight:700;font-size:16px;margin-right:auto}
-.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
-.gallery figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;cursor:pointer}
-.gallery figure:hover{border-color:var(--brand2)}
-.gallery img{width:100%;display:block;border-radius:8px}
-.gallery figcaption{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:6px 2px 0}
-.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.sum{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px}
+.sum .box{flex:1;min-width:160px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fcfbf8}
+.sum .box .l{font-size:12.5px;color:var(--muted)}
+.sum .box .v{font-size:24px;font-weight:700;margin-top:4px}
+.sum .box input{width:100%;font-size:20px;font-weight:700;border:1px solid #d9d4c8;border-radius:8px;padding:5px 8px;margin-top:4px}
+.sum .box input.auto{background:#f3f8f6;border-color:#cfe3dc}
+.sum .box input.man{background:#fff8e6;border-color:#e8cf8f}
+.bar{display:flex;gap:10px;align-items:center;margin-top:16px}
 .bar .grow{flex:1}
-.search{border:1px solid #d9d4c8;border-radius:10px;padding:7px 12px;min-width:160px;outline:none}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kpi .card{padding:14px 18px}
+.kpi .l{font-size:13px;color:var(--muted)}.kpi .v{font-size:30px;font-weight:700;margin-top:4px}
+.kpi .v small{font-size:14px;color:var(--muted);font-weight:500}
+.map{margin-top:10px}
+.map .it{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}
+.map .tag{white-space:nowrap;min-width:84px;text-align:center}
+.map select{border:1px solid #d9d4c8;border-radius:8px;padding:5px 6px;flex:1;background:#fff}
+/* 報表頁 */
+.rep{display:grid;grid-template-columns:330px 1fr;gap:18px;align-items:start}
+.cfg{position:sticky;top:84px;max-height:calc(100vh - 100px);overflow:auto}
+.cfg h4{margin:16px 0 8px;font-size:13.5px;color:#55605d;letter-spacing:1px}
+.cfg h4:first-child{margin-top:0}
+.presets{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.presets .btn{padding:7px 8px;font-size:13px}
+.presets .btn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.mx{width:100%;border-collapse:collapse;font-size:13px}
+.mx th{font-weight:500;color:var(--muted);font-size:12px;padding:4px}
+.mx td{padding:4px;border-top:1px solid var(--line2)}
+.mx td:not(:first-child),.mx th:not(:first-child){text-align:center;width:44px}
+.mx .grp td{background:#f6f4ef;font-size:12px;color:#55605d;font-weight:700}
+.ck{display:flex;align-items:center;gap:7px;font-size:13px;margin:5px 0;cursor:pointer}
+.ck input{accent-color:var(--brand2);width:15px;height:15px}
+.doclist{border:1px solid var(--line);border-radius:10px;max-height:260px;overflow:auto;padding:4px 10px}
+.doclist .cl{font-weight:700;font-size:12.5px;color:#55605d;margin-top:6px}
+.doclist .ck{margin-left:14px}
+.preview{overflow:auto;padding:18px}
+.preview-bar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+#reportArea{display:inline-block;transform-origin:top left}
 .empty-state{padding:60px 20px;text-align:center;color:var(--muted)}
-.toast{position:fixed;right:24px;bottom:24px;background:#1e3d3a;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 8px 24px #0003;opacity:0;transform:translateY(10px);transition:.25s;z-index:99;max-width:440px;line-height:1.6}
+.toast{position:fixed;right:24px;bottom:24px;background:#1e3d3a;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 8px 24px #0003;opacity:0;transform:translateY(10px);transition:.25s;z-index:99;max-width:420px}
 .toast.show{opacity:1;transform:none}.toast.err{background:#9b2c20}
 .hide{display:none!important}
+.hmonth{display:inline-flex;align-items:center;gap:4px;background:#2b4c48;border-radius:99px;padding:3px 4px}
+.hmonth button{background:transparent;border:0;color:#cfe0dc;font-size:17px;width:26px;height:26px;border-radius:50%;cursor:pointer;line-height:1}
+.hmonth button:hover{background:#3a615c;color:#fff}
+.hmonth span{color:#fff;font-weight:500;padding:0 4px}
+.mbtns{display:flex;gap:6px;margin-top:6px}.mbtns .btn{flex:1;padding:5px 6px}
+.viewtabs{display:inline-flex;background:#f1eee7;border-radius:10px;padding:3px}
+.viewtabs button{border:0;background:transparent;padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:500;color:#55605d;white-space:nowrap}
+.viewtabs button.on{background:#fff;color:var(--brand);box-shadow:0 1px 3px #0002}
+#reportArea .pretty,#reportArea .vz{transform-origin:top left}
+.imgbox{display:inline-flex;align-items:center;border:1px solid #d9d4c8;border-radius:10px;overflow:hidden;background:#fff}
+.imgbox select{border:0;padding:9px 8px 9px 12px;background:#fff;font-weight:500;outline:none}
+.imgbox .btn{border:0;border-left:1px solid #e3dfd5;border-radius:0;padding:9px 12px}
+.imgbox .btn:hover{background:#f3f8f6}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid #fff6;border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
+.ex-list{font-size:12.5px;color:var(--muted);max-height:180px;overflow:auto;margin-top:6px}
 details summary{cursor:pointer;color:var(--brand2);font-size:13px}
-.lst{font-size:12.5px;color:#55605d;line-height:1.8;max-height:200px;overflow:auto;margin-top:6px}
-.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted)}
-.legend span{display:flex;align-items:center;gap:6px}.legend i{width:14px;height:14px;border-radius:4px;display:inline-block}
-.batches{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-.bt{border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;background:#fcfbf8}
-.bt:hover{border-color:var(--brand2)}.bt.on{border-color:var(--brand);background:#eef6f3;box-shadow:0 0 0 2px #1e3d3a22}
-.bt .d{font-size:18px;font-weight:700;color:var(--brand)}
-.bt .m{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.6}
-.progress{height:6px;background:#e7e3da;border-radius:99px;overflow:hidden;margin-top:8px}
-.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
-@media (max-width:1200px){.grid3{grid-template-columns:1fr}.work{grid-template-columns:1fr}.pv{position:static}}
+@media (max-width:1200px){.grid3{grid-template-columns:1fr}.panel{grid-template-columns:1fr}.rep{grid-template-columns:1fr}.cfg{position:static;max-height:none}.kpi{grid-template-columns:1fr 1fr}}
 @media (max-width:700px){header.top{flex-wrap:wrap;height:auto;padding:10px 16px;gap:8px}main{padding:16px}.top .right{margin-left:0}}
+@media print{
+  @page{size:A4 portrait;margin:8mm}
+  html,body{background:#fff}
+  header.top,.cfg,.preview-bar,#pageAnalyze,#kpi,#repWarn,.toast,.noprint{display:none!important}
+  main{padding:0;max-width:none}
+  .rep{display:block}.card.preview{border:0;padding:0;overflow:visible}
+  #reportArea{transform:none!important}
+  .rpt td.r.top{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rpt td.d,.rpt td.doc.new,.rpt td.cs-avg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
 /* 登入畫面 */
 .login{position:fixed;inset:0;z-index:100;background:linear-gradient(160deg,#1e3d3a 0%,#2b5a54 55%,#f2f0eb 55.1%);display:grid;place-items:center;padding:20px}
 .lg-card{background:#fff;border-radius:22px;padding:36px 34px 30px;width:100%;max-width:400px;box-shadow:0 20px 50px #0003;text-align:center}
@@ -124,480 +171,842 @@ details summary{cursor:pointer;color:var(--brand2);font-size:13px}
 .lg-err{color:var(--bad);font-size:13px;min-height:20px;margin-top:10px}
 .lg-note{color:var(--muted);font-size:12px;margin-top:6px;line-height:1.6}
 body.locked header.top,body.locked main{visibility:hidden}
+.logo img{width:40px;height:40px;border-radius:50%;background:#fff;padding:1px}
+.who{display:flex;align-items:center;gap:8px}
+.who button{background:#2b4c48;border:0;color:#cfe0dc;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:13px}
+.who button:hover{background:#3a615c;color:#fff}
 </style>
+<style id="pageStyle"></style>
+<style id="rptStyle"></style>
 </head>
 <body class="locked">
 <div id="login" class="login hide"><form class="lg-card" id="lgForm" autocomplete="on">
   <img id="lgLogo" alt="金鶯診所">
-  <h2>金鶯診所 · 醫師基準班表系統</h2>
+  <h2>金鶯診所 · 醫師回診率分析系統</h2>
   <div class="role">前台登入</div>
   <input id="lgUser" placeholder="帳號" autocomplete="username" required>
   <input id="lgPass" type="password" placeholder="密碼" autocomplete="current-password" required>
   <button type="submit" id="lgBtn">登入</button>
   <div class="lg-err" id="lgErr"></div>
-  <div class="lg-note">需由管理者開通帳號才能使用。閒置 30 分鐘或關閉頁面即自動登出。</div>
+  <div class="lg-note">閒置 30 分鐘或關閉頁面即自動登出。</div>
 </form></div>
-
 <header class="top">
-  <div class="logo"><img id="hdLogo" alt="">金鶯診所 · 醫師基準班表系統</div>
+  <div class="logo"><img id="hdLogo" alt="">金鶯診所 · 醫師回診率分析系統</div>
   <nav class="tabs">
-    <button data-page="Make" class="on">產出班表</button>
-    <button data-page="History">歷史查詢</button>
+    <button data-page="Analyze" class="on">資料分析</button>
+    <button data-page="Report">結果報表</button>
     <a href="admin.html" target="_blank">後台管理 ↗</a>
   </nav>
   <div class="right">
+    <span class="hmonth"><button type="button" data-mm="-1" title="上個月">‹</button><span id="monthTag"></span><button type="button" data-mm="1" title="下個月">›</button></span>
     <span class="pill" id="connPill"><span class="dot"></span><span id="connText">連線中…</span></span>
     <span class="who"><span id="whoName"></span><button onclick="logout()">登出</button></span>
   </div>
 </header>
 
 <main>
-<!-- ================= 產出班表 ================= -->
-<section id="pageMake">
+<!-- ================= 資料分析 ================= -->
+<section id="pageAnalyze">
   <div id="noGas" class="warnbox mb hide">尚未設定後台網址（GAS_URL）。部署 Apps Script 後，把網址貼到 index.html 最上方的 GAS_URL 即可使用。</div>
   <div class="grid3 mb">
     <div class="card">
-      <p class="step">STEP 1 ˙ <b>讀取集團門診表</b></p>
-      <label class="f">門診表 Google Sheet 連結（每月／有異動時替換）</label>
-      <div class="row mb" style="gap:8px">
-        <input id="srcUrl" class="inp" style="flex:4" placeholder="https://docs.google.com/spreadsheets/d/…">
-        <button class="btn pri" id="btnRead" style="flex:0">讀取門診表</button>
-      </div>
-      <div id="readStatus" class="hint">系統會讀取所有院區分頁，找出每個院區「○○門診 M/D開始」的基準版本；「異動」週不列入基準班表。</div>
-      <details class="hint hide" id="readDetail" style="margin-top:8px"><summary>查看各院區讀取結果</summary><div id="readList" class="lst"></div></details>
-    </div>
-    <div class="card">
-      <p class="step">STEP 2 ˙ <b>班表月份與生效日</b></p>
+      <p class="step">STEP 1 · <b>分析設定</b></p>
       <div class="row mb">
-        <div><label class="f">班表月份</label><input type="month" id="month" class="inp"></div>
-        <div><label class="f">生效日（自此日起算至月底）</label><input type="date" id="effDate" class="inp"></div>
+        <div><label class="f">分析月份</label><input type="month" id="month" class="inp">
+          <div class="mbtns"><button type="button" class="btn sm" data-mm="-1">‹ 上月</button><button type="button" class="btn sm" data-mm="0">本月</button><button type="button" class="btn sm" data-mm="1">下月 ›</button></div></div>
+        <div><label class="f">分析日期（報表標題）</label><input id="analysisDate" class="inp" placeholder="9/3"></div>
       </div>
-      <div id="dateChips" class="chips mb"></div>
-      <div class="info"><span>ⓘ</span><span>基準班表以「月」為單位：不論生效日是 10/1、10/15 或 10/20，都只到該月底；下個月請另外產出。月中若有院區換新版本（如「10/15開始」），請再以該日產出一次，系統會標出有異動的醫師。</span></div>
+      <div class="row mb">
+        <div><label class="f">區間起</label><input type="date" id="dStart" class="inp"></div>
+        <div><label class="f">區間迄</label><input type="date" id="dEnd" class="inp"></div>
+      </div>
+      <div class="info"><span>ⓘ</span><span id="ruleText"></span></div>
     </div>
     <div class="card">
-      <p class="step">STEP 3 ˙ <b>各院區採用版本</b></p>
-      <div id="verBox" class="hint">讀取門診表後顯示。</div>
+      <p class="step">STEP 2 · <b>上診時數（班表連結）</b></p>
+      <label class="f">班表 Google Sheet 連結（每月替換）</label>
+      <div class="row mb" style="gap:8px">
+        <input id="schedUrl" class="inp" style="flex:4" placeholder="https://docs.google.com/spreadsheets/d/…">
+        <button class="btn pri" id="btnSched" style="flex:0">讀取班表</button>
+      </div>
+      <div id="schedStatus" class="hint">依區間計算各醫師在「自己院區分頁」的上診時數；班表 A 欄為減重專診等排除診別者不計。</div>
+      <details class="hint" style="margin-top:8px"><summary>查看各院區讀取結果</summary><div id="schedDetail" class="ex-list"></div></details>
+    </div>
+    <div class="card">
+      <p class="step">STEP 3 · <b>批次放入檔案</b></p>
+      <div class="drop" id="dropAll"><b>把所有院區的 Excel 一次拖曳到這裡</b>檔名如「觀音_看診名單」「觀音_BACK」「觀音_慢箋」<br>系統會依檔名自動分到各院區</div>
+      <input type="file" id="fileAll" multiple accept=".xlsx,.xls" class="hide">
     </div>
   </div>
 
-  <div class="card" id="docCard">
-    <div class="bar">
-      <p class="step" style="margin:0">STEP 4 ˙ <b>醫師個人基準班表</b> <span id="docCount" class="hint"></span></p>
-      <div class="grow"></div>
-      <div class="legend"><span><i style="background:var(--mint);border:1.5px solid var(--mint-bd)"></i>專任院區</span><span><i style="background:var(--beige);border:1.5px solid var(--beige-bd)"></i>非專任院區</span></div>
+  <div class="card">
+    <div class="row" style="flex-wrap:wrap;margin-bottom:6px">
+      <p class="step" style="margin:0;flex:0 0 auto">STEP 4 · <b>各院區資料</b></p>
+      <div class="legend"><span><i style="background:#cfcabd"></i>未放檔案</span><span><i style="background:#e0a32e"></i>已分析未儲存</span><span><i style="background:#2fa074"></i>已儲存到後台</span></div>
     </div>
-    <div id="docEmpty" class="empty-state">完成 STEP 1～3 後，這裡會列出所有醫師的個人基準班表。</div>
-    <div id="docArea" class="hide">
-      <div id="docWarn"></div>
-      <div class="bar">
-        <input id="q" class="search" placeholder="搜尋醫師">
-        <div id="clinicFilter" class="chips"></div>
-        <div class="grow"></div>
-        <button class="btn sm" id="btnView">▦ 全部預覽</button>
-        <button class="btn sm" id="btnDlSel" title="只勾部分醫師 → 逐張下載 PNG；全部勾選 → 下載 ZIP">⬇ 下載勾選（<span id="selN">0</span>）</button>
-        <button class="btn sm" id="btnDlAll">⬇ 全部下載 ZIP</button>
-        <button class="btn sm pri" id="btnSave">⇪ 儲存本次產出到後台</button>
-      </div>
-      <div class="progress hide" id="prog"><i></i></div>
-      <div class="work" id="workList">
-        <div class="tbl-wrap" style="max-height:calc(100vh - 170px)">
-          <table class="dt" id="docTable">
-            <thead><tr><th><input type="checkbox" id="ckAll" title="全選"></th><th>醫師</th><th>職稱</th><th>專任院區</th><th>院區</th><th>與前版</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <div class="pv card" style="padding:14px 16px">
-          <div class="pv-bar"><span class="nm" id="pvName"></span><button class="btn sm" id="pvPrev">‹</button><button class="btn sm" id="pvNext">›</button><button class="btn sm pri" id="pvDl">⬇ 下載 PNG</button></div>
-          <canvas id="pvCanvas" width="10" height="10"></canvas>
-          <div class="hint" id="pvNote" style="margin-top:8px"></div>
-        </div>
-      </div>
-      <div class="gallery hide" id="gallery"></div>
-    </div>
+    <div class="chips" id="clinicChips"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin:-8px 0 10px"><button class="btn sm pri" id="btnSaveAll" title="把本月有放檔案或修改過、還沒儲存的院區一次存到後台">⇪ 全部儲存到後台</button><button class="btn sm ghost" id="btnResetLocal" title="清除這台電腦上本月份放過的檔案與輸入值，改顯示後台已儲存的資料">↺ 清除本月暫存，改看後台資料</button></div>
+    <div id="clinicPanel"></div>
   </div>
 </section>
 
-<!-- ================= 歷史查詢 ================= -->
-<section id="pageHistory" class="hide">
-  <div class="card mb">
-    <div class="bar">
-      <p class="step" style="margin:0">已儲存的基準班表</p>
-      <input type="month" id="hMonth" class="inp" style="width:180px">
-      <button class="btn sm" id="hAll">顯示全部月份</button>
-      <div class="grow"></div>
-      <span class="hint">同一月份、同一生效日重新儲存會取代舊紀錄。</span>
+<!-- ================= 結果報表 ================= -->
+<section id="pageReport" class="hide">
+  <div class="kpi" id="kpi"></div>
+  <div class="rep">
+    <div class="card cfg">
+      <h4>預設版型</h4>
+      <div class="presets" id="presetBtns"></div>
+      <div class="row" style="margin-top:8px;gap:6px">
+        <select id="customSel" class="inp" style="padding:7px"><option value="">— 自訂版型 —</option></select>
+        <button class="btn sm" id="btnSavePreset" style="flex:0">存為版型</button>
+        <button class="btn sm ghost" id="btnDelPreset" style="flex:0">刪除</button>
+      </div>
+
+      <h4>顯示院區</h4>
+      <label class="ck"><input type="checkbox" id="ckAllClinic">全部院區</label>
+      <div id="clinicCks" style="display:grid;grid-template-columns:repeat(3,1fr)"></div>
+
+      <h4>顯示醫師 <span class="hint" style="letter-spacing:0">（不勾 = 所選院區全部醫師）</span></h4>
+      <div class="doclist" id="docCks"></div>
+
+      <h4>數據欄位</h4>
+      <table class="mx" id="colMatrix"></table>
+
+      <h4>院區統計欄（老闆版）</h4>
+      <label class="ck"><input type="checkbox" data-cs="total">院區總人次</label>
+      <label class="ck"><input type="checkbox" data-cs="slow">院區慢箋人次</label>
+      <label class="ck"><input type="checkbox" data-cs="rate">院區慢箋比例</label>
+      <label class="ck"><input type="checkbox" data-cs="rank">院區排名</label>
+
+      <h4>其他</h4>
+      <label class="ck"><input type="checkbox" id="optAvg">集團平均值列</label>
+      <label class="ck"><input type="checkbox" id="optGrand">全院區總人次加總</label>
     </div>
-    <div id="hList" class="batches"></div>
-  </div>
-  <div class="card hide" id="hDetail">
-    <div class="bar">
-      <p class="step" style="margin:0" id="hTitle"></p>
-      <input id="hq" class="search" placeholder="搜尋醫師">
-      <div class="grow"></div>
-      <button class="btn sm" id="hOnlyChg">只看異動</button>
-      <button class="btn sm pri" id="hDlAll">⬇ 下載這批 ZIP</button>
+
+    <div class="card preview">
+      <div class="preview-bar">
+        <b id="repTitle" style="font-size:16px"></b>
+        <span class="viewtabs" id="viewTabs"><button data-v="table">表格（Excel）</button><button data-v="image">美化圖片</button><button data-v="visits">全院區總人次圖</button></span>
+        <select id="imgStyle" class="inp" style="width:auto;padding:7px 10px"><option value="table">表格版</option><option value="cards">院區卡片版</option></select>
+        <input id="visitNote" class="inp hide" style="width:260px;padding:7px 10px" placeholder="備註／決議（選填，會印在圖下方）">
+        <span class="grow" style="flex:1"></span>
+        <select id="paper" class="inp" style="width:auto;padding:7px 10px"><option value="portrait">A4 直印</option><option value="landscape">A4 橫印</option></select>
+        <label class="ck" style="margin:0 6px"><input type="checkbox" id="fitScreen" checked>縮放符合畫面</label>
+        <button class="btn" id="btnReload">重新載入資料</button>
+        <button class="btn" id="btnXlsx">下載 Excel</button>
+        <span class="imgbox"><button class="btn" id="btnPng">下載 PNG</button><button class="btn" id="btnJpg">JPEG</button></span>
+        <button class="btn pri" id="btnPrint">列印 / 存成 PDF</button>
+      </div>
+      <div id="repWarn" class="warnbox mb hide"></div>
+      <div id="reportWrap"><div id="reportArea"></div></div>
     </div>
-    <div class="hint mb" id="hMeta"></div>
-    <div class="gallery" id="hGallery"></div>
   </div>
 </section>
 </main>
 <div class="toast" id="toast"></div>
 
 <script>
-'use strict';
+const E = window.Engine;
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
-const esc = s => String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const esc = E.esc;
 const HAS_GAS = /^https:\/\/script\.google\.com\//.test(GAS_URL);
-const TOK_KEY = 'ebs_front_token', LOGIN_ROLE = 'front', IDLE_MIN = 30;
-function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', err ? 6500 : 3200); }
-/** 後台回傳不是 JSON（Google 錯誤頁）時，擷取錯誤文字 */
-async function readJson(res) {
-  const t = await res.text();
-  try { return JSON.parse(t); } catch (e) {
-    const d = document.createElement('div'); d.innerHTML = t.replace(/<(script|style)[\s\S]*?<\/\1>/gi, '');
-    const msg = (d.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 160);
-    throw new Error('後台執行失敗（Google 回傳錯誤頁）' + (msg ? '：' + msg : '') + '。請到 Apps Script →「執行作業」查看錯誤原因');
-  }
-}
-async function api(action, payload) {
+
+/* ---------- 共用 ---------- */
+function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', err ? 6000 : 3000); }
+async function api(action, payload, _try) {
   if (!HAS_GAS) throw new Error('尚未設定後台網址 GAS_URL');
-  const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, payload: payload || {}, token: TOKEN }) });
-  const j = await readJson(res);
-  if (j.auth) { showLogin(j.error); throw new Error(j.error); }
+  let txt = '';
+  try {
+    const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, payload: payload || {}, token: TOKEN }) });
+    txt = await res.text();
+  } catch (e) { if (!_try) { await new Promise(r => setTimeout(r, 2000)); return api(action, payload, 1); } throw new Error('網路連線失敗，請確認網路後再試一次'); }
+  let j;
+  try { j = JSON.parse(txt); }
+  catch (e) {
+    // Google 回傳錯誤網頁（伺服器忙碌或程式錯誤）：自動重試一次，仍失敗就把 Google 的錯誤訊息顯示出來
+    if (!_try) { await new Promise(r => setTimeout(r, 2500)); return api(action, payload, 1); }
+    const d = new DOMParser().parseFromString(txt, 'text/html');
+    const msg = ((d.querySelector('.errorMessage, #error, div[style*="margin"]') || d.body || {}).textContent || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    throw new Error('Google 後台回傳錯誤頁' + (msg ? '：「' + msg + '」' : '') + '。請稍後再按一次儲存；若持續發生，請到 Apps Script「執行項目」查看錯誤');
+  }
+  if (j.auth) { showLogin('登入已逾時，請重新登入'); throw new Error('請重新登入'); }
   if (!j.ok) throw new Error(j.error || '後台錯誤');
   return j.data;
 }
-function busy(btn, on, label) { if (!btn) return; if (on) { btn._h = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span> ' + (label || '處理中…'); } else { btn.disabled = false; if (btn._h) btn.innerHTML = btn._h; } }
+const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+function busy(btn, on, text) { if (!btn) return; if (on) { btn._t = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span> ' + (text || '處理中'); } else { btn.disabled = false; btn.innerHTML = btn._t; } }
 
-/* ---------------- 登入 ---------------- */
+/* ---------- 狀態 ---------- */
+let CFG = JSON.parse(JSON.stringify(E.DEFAULT_CONFIG));
+const S = { month: '', clinics: {}, sched: null, schedHours: {}, current: null };
+const RAW = {};   // 院區 → {visit:{rows,...}, back:{rows}}（只存在記憶體）
+
+const setting = (k, d) => { const v = CFG.settings[k]; return v === undefined || v === '' ? d : v; };
+const DAYS = () => +setting('回診判定天數', 5);
+const SLOW_EX = () => String(setting('慢專排名排除院區', '樹林')).split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean);
+const THRESH = () => { let v = +setting('狹義回診排名門檻', 0.3); return v > 1 ? v / 100 : v; };
+const activeClinics = () => CFG.clinics.filter(c => c.active !== false);
+const clinicDoctors = cl => CFG.doctors.filter(d => d.clinic === cl && d.active !== false).sort((a, b) => (+a.order || 999) - (+b.order || 999));
+
+function stateKey() { return 'rr_state_' + S.month; }
+function saveLocal() { const o = { clinics: S.clinics, schedHours: S.schedHours, schedInfo: S.schedInfo, analysisDate: $('#analysisDate').value, dStart: $('#dStart').value, dEnd: $('#dEnd').value }; LS.set(stateKey(), o); }
+function loadLocal() {
+  const o = LS.get(stateKey(), null);
+  S.clinics = {}; S.schedHours = {}; S.schedInfo = null;
+  const [s, e] = E.monthRange(S.month);
+  $('#dStart').value = E.dayIso(s); $('#dEnd').value = E.dayIso(e);
+  const t = new Date(); $('#analysisDate').value = (t.getMonth() + 1) + '/' + t.getDate();
+  if (o) {
+    S.clinics = o.clinics || {}; S.schedHours = o.schedHours || {}; S.schedInfo = o.schedInfo || null;
+    if (o.analysisDate) $('#analysisDate').value = o.analysisDate;
+    if (o.dStart) $('#dStart').value = o.dStart; if (o.dEnd) $('#dEnd').value = o.dEnd;
+  }
+  Object.keys(RAW).forEach(k => delete RAW[k]);
+}
+/* ---------- 原始檔案內容保存在這台電腦（IndexedDB），重新整理後不用再放一次檔案 ---------- */
+const IDB = {
+  db() { return new Promise((ok, no) => { try { const q = indexedDB.open('rr_raw_db', 1); q.onupgradeneeded = () => q.result.createObjectStore('raw'); q.onsuccess = () => ok(q.result); q.onerror = () => no(q.error); } catch (e) { no(e); } }); },
+  async put(k, v) { try { const d = await this.db(); await new Promise((ok, no) => { const t = d.transaction('raw', 'readwrite'); t.objectStore('raw').put(v, k); t.oncomplete = ok; t.onerror = () => no(t.error); }); } catch (e) {} },
+  async get(k) { try { const d = await this.db(); return await new Promise(ok => { const q = d.transaction('raw').objectStore('raw').get(k); q.onsuccess = () => ok(q.result); q.onerror = () => ok(null); }); } catch (e) { return null; } }
+};
+const rawKey = () => 'raw_' + S.month;
+function persistRaw() { const o = {}; Object.keys(RAW).forEach(k => o[k] = RAW[k]); IDB.put(rawKey(), o); }
+async function restoreRaw() {
+  const m = S.month; const o = await IDB.get(rawKey());
+  if (!o || m !== S.month) return;
+  Object.keys(o).forEach(cl => { RAW[cl] = o[cl]; if (S.clinics[cl]) recompute(cl, true); });
+  renderChips(); if (S.current) selectClinic(S.current);
+}
+function cs(cl) { return S.clinics[cl] || (S.clinics[cl] = { inputs: {}, summary: {}, counts: null }); }
+
+
+/* ---------- 登入 ---------- */
+const TOK_KEY = 'rr_tok';
 let TOKEN = (() => { try { return sessionStorage.getItem(TOK_KEY) || ''; } catch (e) { return ''; } })();
 let WHO = (() => { try { return JSON.parse(sessionStorage.getItem(TOK_KEY + '_who') || 'null'); } catch (e) { return null; } })();
 function showLogin(msg) {
   TOKEN = ''; clearTimeout(idleTimer); try { sessionStorage.removeItem(TOK_KEY); } catch (e) {}
-  document.body.classList.add('locked'); $('#login').classList.remove('hide'); $('#lgErr').textContent = msg || ''; $('#lgPass').value = ''; setTimeout(() => $('#lgUser').focus(), 50);
+  document.body.classList.add('locked'); $('#login').classList.remove('hide');
+  $('#lgErr').textContent = msg || ''; setTimeout(() => $('#lgUser').focus(), 50);
 }
-$('#lgLogo').src = E.LOGO; $('#hdLogo').src = E.LOGO;
+$('#lgLogo').src = E.LOGO;
 $('#lgForm').addEventListener('submit', async ev => {
-  ev.preventDefault(); $('#lgErr').textContent = ''; busy($('#lgBtn'), true, '登入中…');
+  ev.preventDefault();
+  const btn = $('#lgBtn'); btn.disabled = true; btn.textContent = '登入中…'; $('#lgErr').textContent = '';
   try {
     if (!HAS_GAS) throw new Error('尚未設定後台網址 GAS_URL');
     const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'login', payload: { role: LOGIN_ROLE, user: $('#lgUser').value.trim(), pass: $('#lgPass').value } }) });
-    const j = await readJson(res); if (!j.ok) throw new Error(j.error);
-    TOKEN = j.data.token; WHO = { user: j.data.user, role: j.data.role };
+    const j = await res.json(); if (!j.ok) throw new Error(j.error);
+    TOKEN = j.data.token; WHO = j.data;
     try { sessionStorage.setItem(TOK_KEY, TOKEN); sessionStorage.setItem(TOK_KEY + '_who', JSON.stringify(WHO)); } catch (e) {}
-    $('#login').classList.add('hide'); document.body.classList.remove('locked'); resetIdle(); boot();
-  } catch (e) { $('#lgErr').textContent = e.message; } finally { busy($('#lgBtn'), false); }
+    $('#lgPass').value = ''; $('#login').classList.add('hide'); document.body.classList.remove('locked');
+    start();
+  } catch (e) { $('#lgErr').textContent = e.message || '登入失敗'; }
+  btn.disabled = false; btn.textContent = '登入';
 });
+/* ---------- 閒置 30 分鐘自動登出（關閉分頁即清除登入）---------- */
+const IDLE_MIN = 30;
 let idleTimer = null;
 function resetIdle() { if (!TOKEN) return; clearTimeout(idleTimer); idleTimer = setTimeout(async () => { try { await api('logout'); } catch (e) {} showLogin('閒置超過 ' + IDLE_MIN + ' 分鐘，已自動登出'); }, IDLE_MIN * 60 * 1000); }
-['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'wheel'].forEach(ev => window.addEventListener(ev, () => { if (Date.now() - (resetIdle._t || 0) > 5000) { resetIdle._t = Date.now(); resetIdle(); } }, { passive: true }));
+['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'wheel'].forEach(ev => window.addEventListener(ev, () => { if (!idleTimer || Date.now() - (resetIdle._t || 0) > 5000) { resetIdle._t = Date.now(); resetIdle(); } }, { passive: true }));
 async function logout() { try { await api('logout'); } catch (e) {} try { sessionStorage.removeItem(TOK_KEY); sessionStorage.removeItem(TOK_KEY + '_who'); } catch (e) {} location.reload(); }
+const LOGIN_ROLE = 'front';
+$('#hdLogo').src = E.LOGO;
 
-/* ---------------- 狀態 ---------------- */
-let CFG = { clinics: [], doctors: [], settings: [] }, ST = E.settings();
-let BOOK = null, PARSED = null, PICK = null, OVERRIDE = {}, DOCS = [], PREV = null, CUR = 0, FILTER = '', VIEW = 'list';
-const setConn = (ok, t) => { $('#connPill').className = 'pill ' + (ok ? 'ok' : 'bad'); $('#connText').textContent = t; };
-
-async function boot() {
-  $('#whoName').textContent = WHO ? WHO.user + (WHO.role === 'admin' ? '（管理者）' : '') : '';
-  try {
-    CFG = await api('getConfig');
-    ST = E.settings(CFG.settings);
-    const last = (CFG.settings.find(s => s.key === 'lastUrl') || {}).value;
-    if (last && !$('#srcUrl').value) $('#srcUrl').value = last;
-    setConn(true, '後台已連線');
-  } catch (e) { setConn(false, '後台未連線'); toast(e.message, true); }
-  E.fontsReady();
-}
-
-/* ---------------- 分頁 ---------------- */
-$$('nav.tabs button').forEach(b => b.addEventListener('click', () => {
-  $$('nav.tabs button').forEach(x => x.classList.toggle('on', x === b));
-  $('#pageMake').classList.toggle('hide', b.dataset.page !== 'Make');
-  $('#pageHistory').classList.toggle('hide', b.dataset.page !== 'History');
-  if (b.dataset.page === 'History') loadHistory();
-}));
-
-/* ---------------- STEP 1 讀取 ---------------- */
-$('#btnRead').addEventListener('click', async () => {
-  const url = $('#srcUrl').value.trim();
-  if (!/docs\.google\.com\/spreadsheets/.test(url)) return toast('請貼上 Google Sheet 連結', true);
-  busy($('#btnRead'), true, '讀取中…');
-  $('#readStatus').textContent = '讀取中，院區較多約需 10～30 秒…';
-  try {
-    BOOK = await api('readSchedule', { url });
-    const m = E.monthFromTitle(BOOK.title);
-    if (m) $('#month').value = m;
-    if (!$('#month').value) { const d = new Date(); $('#month').value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 2)).slice(-2); }
-    OVERRIDE = {};
-    $('#effDate').value = $('#month').value + '-01';
-    reparse();
-    toast('已讀取「' + BOOK.title + '」');
-  } catch (e) { $('#readStatus').textContent = '讀取失敗：' + e.message; toast(e.message, true); }
-  finally { busy($('#btnRead'), false); }
-});
-
-function reparse() {
-  if (!BOOK) return;
-  const month = $('#month').value;
-  PARSED = E.parseBook(BOOK, { month, clinics: CFG.clinics.length ? CFG.clinics : null, settings: ST });
-  const nBlocks = PARSED.clinics.reduce((a, c) => a + c.blocks.length, 0);
-  $('#readStatus').innerHTML = '<span class="tag g">讀取完成</span> 「' + esc(BOOK.title) + '」共 ' + PARSED.clinics.length + ' 個院區、' + nBlocks + ' 張班表' +
-    (PARSED.warnings.length ? '<div class="warnbox" style="margin-top:8px">' + PARSED.warnings.map(esc).join('<br>') + '</div>' : '');
-  const missing = CFG.clinics.filter(c => c.on && !PARSED.clinics.some(p => p.clinic === c.clinic)).map(c => c.clinic);
-  if (missing.length) $('#readStatus').innerHTML += '<div class="warnbox" style="margin-top:8px">院區清單中找不到分頁：' + missing.map(esc).join('、') + '（請確認後台「院區清單」的班表分頁名稱）</div>';
-  $('#readDetail').classList.remove('hide');
-  $('#readList').innerHTML = PARSED.clinics.map(c => '<b>' + esc(c.clinic) + '</b>：' + c.blocks.map(b => (b.kind === 'base' ? '' : '<span style="color:#b7791f">') + esc(b.title) + (b.dates.length ? '（' + E.md(b.dates[0]) + '週）' : '') + (b.kind === 'base' ? '' : '</span>')).join('、')).join('<br>');
-  // 生效日快速選
-  const vd = E.versionDates(PARSED);
-  const m1 = month + '-01';
-  const chips = [{ date: m1, clinics: [] }].concat(vd.filter(v => v.date !== m1));
-  $('#dateChips').innerHTML = chips.map(v => '<button class="chip" data-d="' + v.date + '">' + E.md(v.date) + ' 起' + (v.clinics.length ? '<small>' + esc(v.clinics.join('、')) + ' 新版</small>' : '') + '</button>').join('');
-  $$('#dateChips .chip').forEach(b => b.addEventListener('click', () => { $('#effDate').value = b.dataset.d; OVERRIDE = {}; repick(); }));
-  repick();
-}
-
-/* ---------------- STEP 2/3 版本 ---------------- */
-function clampDate() {
-  const m = $('#month').value; if (!m) return;
-  $('#effDate').min = m + '-01'; $('#effDate').max = E.monthEnd(m);
-  if (!$('#effDate').value || $('#effDate').value.slice(0, 7) !== m) $('#effDate').value = m + '-01';
-}
-$('#month').addEventListener('change', () => { clampDate(); OVERRIDE = {}; reparse(); });
-$('#effDate').addEventListener('change', () => { clampDate(); OVERRIDE = {}; repick(); });
-
-function repick() {
-  if (!PARSED) return;
-  clampDate();
-  const date = $('#effDate').value;
-  $$('#dateChips .chip').forEach(b => b.classList.toggle('on', b.dataset.d === date));
-  PICK = E.pickVersions(PARSED, date, OVERRIDE);
-  let h = '<div class="tbl-wrap" style="max-height:300px"><table class="dt ver"><thead><tr><th>院區</th><th>採用版本</th></tr></thead><tbody>';
-  PARSED.clinics.forEach(c => {
-    const cur = PICK.picks[c.clinic];
-    const opts = c.blocks.map(b => '<option value="' + b.index + '"' + (b.index === cur ? ' selected' : '') + '>' + esc(b.title) + (b.dates.length ? '（' + E.md(b.dates[0]) + '週）' : '（第 ' + b.row + ' 列）') + '</option>').join('');
-    const inf = PICK.info[c.clinic];
-    h += '<tr><td><b>' + esc(c.clinic) + '</b></td><td><select data-c="' + esc(c.clinic) + '">' + opts + '</select><div class="why">' + esc(inf.why) + (inf.why.startsWith('⚠') ? '' : '・' + E.md(inf.start) + ' 起') + '</div></td></tr>';
-  });
-  h += '</tbody></table></div>';
-  if (PICK.upcoming.length) h += '<div class="warnbox" style="margin-top:10px">本月生效日之後還有新版本：<br>' + PICK.upcoming.map(u => '・' + E.md(u.date) + ' ' + esc(u.clinic) + '（' + esc(u.title) + '）').join('<br>') + '<br>屆時請以該日期再產出一次。</div>';
-  if (PICK.temps.length) h += '<details style="margin-top:10px"><summary>本月「異動」週共 ' + PICK.temps.length + ' 張（不列入基準班表，以公告為主）</summary><div class="lst">' + PICK.temps.map(t => esc(t.clinic) + '：' + esc(t.title)).join('<br>') + '</div></details>';
-  $('#verBox').innerHTML = h;
-  $$('#verBox select').forEach(s => s.addEventListener('change', () => { OVERRIDE[s.dataset.c] = +s.value; repick(); }));
-  build();
-}
-
-/* ---------------- STEP 4 醫師 ---------------- */
-async function build() {
-  const keep = {};
-  DOCS.forEach(d => { if (d._edited) keep[d.name] = { title: d.title, home: d.home }; });
-  DOCS = E.buildDoctors(PARSED, PICK, CFG.doctors, ST, E.normRules(CFG.rules));
-  DOCS.forEach(d => { if (keep[d.name]) Object.assign(d, keep[d.name], { _edited: true }); d._sel = true; });
-  await loadPrev();
-  CUR = 0;
-  $('#docEmpty').classList.add('hide'); $('#docArea').classList.remove('hide');
-  renderFilter(); renderTable(); await E.fontsReady(); showPreview();
-}
-
-/** 找同月份、生效日較早的最近一次產出 → 比對異動 */
-async function loadPrev() {
-  PREV = null;
-  const date = $('#effDate').value, month = $('#month').value;
-  try {
-    const list = (await api('listBatches', { month })).filter(b => b.date < date);
-    if (list.length) {
-      list.sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
-      PREV = await api('getBatch', { id: list[0].id });
-    }
-  } catch (e) { console.warn(e); }
-  compare();
-}
-function compare() {
-  const map = {};
-  if (PREV) PREV.doctors.forEach(d => map[d.name] = d.sig);
-  DOCS.forEach(d => {
-    d.sig = E.sig(d);
-    d.cmp = !PREV ? '' : !(d.name in map) ? '新增' : map[d.name] === d.sig ? '相同' : '異動';
-    if (PREV) d._sel = d.cmp !== '相同';
-  });
-  const warn = [];
-  const news = DOCS.filter(d => d.isNew);
-  if (news.length) warn.push('<div class="warnbox mb">後台醫師清單沒有這些醫師：<b>' + news.map(d => esc(d.name)).join('、') + '</b>。已暫以診次最多的院區為專任院區、職稱為「醫師」。<button class="btn sm" id="btnAddNew" style="margin-left:6px">加入後台醫師清單</button></div>');
-  if (PREV) {
-    const chg = DOCS.filter(d => d.cmp !== '相同').length;
-    const gone = PREV.doctors.filter(p => !DOCS.some(d => d.name === p.name)).map(p => p.name);
-    warn.push('<div class="' + (chg ? 'warnbox' : 'okbox') + ' mb">已與 <b>' + E.md(PREV.meta.date) + ' 起</b> 的產出比對：' + (chg ? '<b>' + chg + '</b> 位醫師有異動或新增，已自動勾選，只需提供這些醫師的新班表。' : '所有醫師班表都沒有變動，這次不用另外提供。') + (gone.length ? '<br>前版有、這次沒有的醫師：' + gone.map(esc).join('、') : '') + '</div>');
-  }
-  const edited = DOCS.filter(d => d._edited);
-  if (edited.length) warn.push('<div class="info mb"><span>✎</span><span>已在這次產出中調整 ' + edited.length + ' 位醫師的職稱／專任院區。' + (WHO && WHO.role === 'admin' ? '<button class="btn sm" id="btnSaveMeta" style="margin-left:6px">寫回後台醫師清單</button>' : '（前台帳號只套用在這次產出；要永久修改請到後台管理）') + '</span></div>');
-  $('#docWarn').innerHTML = warn.join('');
-  const an = $('#btnAddNew'); if (an) an.addEventListener('click', addNewDoctors);
-  const sm = $('#btnSaveMeta'); if (sm) sm.addEventListener('click', saveMeta);
-}
-async function addNewDoctors() {
-  try { const r = await api('addDoctors', { doctors: DOCS.filter(d => d.isNew).map(d => ({ name: d.name, title: d.title, home: d.home })) }); CFG = await api('getConfig'); DOCS.forEach(d => { if (d.isNew) d.isNew = false; }); compare(); toast('已加入 ' + r.added + ' 位醫師到後台，請到後台確認專任院區與職稱'); }
-  catch (e) { toast(e.message, true); }
-}
-async function saveMeta() {
-  const rows = CFG.doctors.map(d => ({ ...d }));
-  DOCS.filter(d => d._edited).forEach(d => {
-    const r = rows.find(x => x.name === d.name);
-    if (r) { r.title = d.title; r.home = d.home; } else rows.push({ order: rows.length + 1, name: d.name, title: d.title, home: d.home, on: true, note: '' });
-  });
-  try {
-    await api('saveList', { key: 'doctors', rows: rows.map(r => [r.order, r.name, r.title, r.home, r.on ? 'Y' : 'N', r.note || '']) });
-    CFG = await api('getConfig'); DOCS.forEach(d => { d._edited = false; d.isNew = false; d.homeAuto = false; }); compare(); renderTable(); toast('已寫回後台醫師清單');
-  } catch (e) { toast(e.message, true); }
-}
-
-function visible() {
-  const q = $('#q').value.trim();
-  return DOCS.filter(d => (!q || d.name.indexOf(q) >= 0) && (!FILTER || d.home === FILTER || d.clinics.indexOf(FILTER) >= 0));
-}
-function renderFilter() {
-  const cl = PARSED.clinics.map(c => c.clinic);
-  $('#clinicFilter').innerHTML = ['全部'].concat(cl).map(c => '<button class="chip' + ((c === '全部' ? '' : c) === FILTER ? ' on' : '') + '" data-c="' + (c === '全部' ? '' : esc(c)) + '">' + esc(c) + '</button>').join('');
-  $$('#clinicFilter .chip').forEach(b => b.addEventListener('click', () => { FILTER = b.dataset.c; renderFilter(); renderTable(); if (VIEW === 'gallery') renderGallery(); }));
-}
-const cmpTag = c => c === '異動' ? '<span class="tag y">異動</span>' : c === '新增' ? '<span class="tag b">新增</span>' : c === '相同' ? '<span class="tag n">相同</span>' : c === '首版' ? '<span class="tag g">首版</span>' : '<span class="hint">—</span>';
-function renderTable() {
-  const list = visible();
-  $('#docCount').textContent = '共 ' + DOCS.length + ' 位醫師' + (list.length !== DOCS.length ? '，顯示 ' + list.length + ' 位' : '');
-  const clinics = PARSED.clinics.map(c => c.clinic);
-  const titles = Array.from(new Set(E.TITLES.concat(CFG.doctors.map(d => d.title)).filter(Boolean)));
-  $('#docTable tbody').innerHTML = list.map(d => {
-    const i = DOCS.indexOf(d);
-    const tOpts = titles.concat(titles.indexOf(d.title) < 0 ? [d.title] : []).map(t => '<option' + (t === d.title ? ' selected' : '') + '>' + esc(t) + '</option>').join('');
-    const hOpts = clinics.map(c => '<option' + (c === d.home ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
-    return '<tr data-i="' + i + '"' + (i === CUR ? ' class="sel"' : '') + '><td><input type="checkbox" class="ck"' + (d._sel ? ' checked' : '') + '></td><td><b>' + esc(d.name) + '</b>' + (d.isNew ? ' <span class="tag r">未建檔</span>' : '') + '</td>' +
-      '<td><select class="t">' + tOpts + '</select></td><td><select class="h' + (d.homeAuto ? ' auto" title="後台尚未設定，暫以診次最多院區帶入' : '') + '">' + hOpts + '</select></td>' +
-      '<td class="hint">' + d.clinics.map(esc).join('、') + '</td><td>' + cmpTag(d.cmp) + '</td></tr>';
-  }).join('') || '<tr><td colspan="6" class="empty-state">沒有符合的醫師</td></tr>';
-  $$('#docTable tbody tr[data-i]').forEach(tr => {
-    const d = DOCS[+tr.dataset.i];
-    tr.addEventListener('click', ev => { if (ev.target.closest('select,input')) return; CUR = +tr.dataset.i; $$('#docTable tr.sel').forEach(x => x.classList.remove('sel')); tr.classList.add('sel'); showPreview(); });
-    tr.querySelector('.ck').addEventListener('change', e => { d._sel = e.target.checked; updSel(); });
-    tr.querySelector('.t').addEventListener('change', e => { d.title = e.target.value; edited(d, tr); });
-    tr.querySelector('.h').addEventListener('change', e => { d.home = e.target.value; d.homeAuto = false; e.target.classList.remove('auto'); edited(d, tr); });
-  });
-  updSel();
-}
-function edited(d, tr) { d._edited = true; CUR = +tr.dataset.i; compare(); $$('#docTable tr.sel').forEach(x => x.classList.remove('sel')); tr.classList.add('sel'); tr.querySelector('td:last-child').innerHTML = cmpTag(d.cmp); showPreview(); }
-function updSel() { $('#selN').textContent = DOCS.filter(d => d._sel).length; const v = visible(); $('#ckAll').checked = v.length && v.every(d => d._sel); }
-$('#ckAll').addEventListener('change', e => { visible().forEach(d => d._sel = e.target.checked); renderTable(); });
-$('#q').addEventListener('input', () => { renderTable(); if (VIEW === 'gallery') renderGallery(); });
-
-const opts = () => ({ month: $('#month').value, date: $('#effDate').value, settings: ST });
-function showPreview() {
-  const d = DOCS[CUR]; if (!d) return;
-  const cv = E.render(d, opts());
-  const pv = $('#pvCanvas'); pv.width = cv.width; pv.height = cv.height; pv.getContext('2d').drawImage(cv, 0, 0);
-  $('#pvName').textContent = d.name + ' ' + d.title;
-  const sp = d.entries.filter(e => e.type !== '健保').length, alt = d.entries.filter(e => e.alt).length;
-  $('#pvNote').textContent = '專任院區：' + d.home + (d.homeAuto ? '（後台未設定，暫以診次最多院區帶入）' : '') + '・共 ' + d.entries.length + ' 個診' + (sp ? '，其中特別門診 ' + sp : '') + (alt ? '，隔週休 ' + alt : '') + (E.normRules(CFG.rules).some(r => r.doctor === d.name) ? '・已套用拆班規則' : '');
-}
-function step(k) { const v = visible(); if (!v.length) return; let i = v.indexOf(DOCS[CUR]); i = (i + k + v.length) % v.length; CUR = DOCS.indexOf(v[i]); renderTable(); showPreview(); const tr = $('#docTable tr.sel'); if (tr) tr.scrollIntoView({ block: 'nearest' }); }
-$('#pvPrev').addEventListener('click', () => step(-1)); $('#pvNext').addEventListener('click', () => step(1));
-$('#pvDl').addEventListener('click', () => { const d = DOCS[CUR]; if (d) dlOne(d, opts()); });
-
-$('#btnView').addEventListener('click', () => { VIEW = VIEW === 'list' ? 'gallery' : 'list'; $('#btnView').textContent = VIEW === 'list' ? '▦ 全部預覽' : '☰ 清單模式'; $('#workList').classList.toggle('hide', VIEW !== 'list'); $('#gallery').classList.toggle('hide', VIEW === 'list'); if (VIEW === 'gallery') renderGallery(); });
-function renderGallery() { galleryInto($('#gallery'), visible(), opts(), d => { CUR = DOCS.indexOf(d); $('#btnView').click(); showPreview(); renderTable(); }); }
-function galleryInto(el, list, o, onClick) {
-  el.innerHTML = '';
-  list.forEach(d => {
-    const f = document.createElement('figure');
-    const cv = E.render(d, Object.assign({}, o, { scale: 1 }));
-    f.innerHTML = '<img alt=""><figcaption><b>' + esc(d.name) + ' ' + esc(d.title) + '</b>' + cmpTag(d.cmp) + '</figcaption>';
-    f.querySelector('img').src = cv.toDataURL('image/png');
-    f.addEventListener('click', () => onClick(d));
-    el.appendChild(f);
-  });
-}
-
-/* ---------------- 下載 ---------------- */
-async function dlOne(d, o) { await E.fontsReady(); const b = await E.toBlob(E.render(d, o)); saveBlob(b, E.fileName(d)); }
-function saveBlob(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }
-async function dlZip(list, o, name) {
-  if (!list.length) return toast('沒有要下載的醫師', true);
-  await E.fontsReady();
-  const zip = new JSZip(), p = $('#prog'); p.classList.remove('hide');
-  for (let i = 0; i < list.length; i++) {
-    zip.file(E.fileName(list[i]), await E.toBlob(E.render(list[i], o)));
-    p.firstElementChild.style.width = Math.round((i + 1) / list.length * 100) + '%';
-    await new Promise(r => setTimeout(r, 0));
-  }
-  saveBlob(await zip.generateAsync({ type: 'blob' }), name);
-  setTimeout(() => { p.classList.add('hide'); p.firstElementChild.style.width = 0; }, 800);
-}
-const zipName = (m, d) => E.rocMonth(m) + ' 醫師門診表' + (+d.slice(8) !== 1 ? '（' + E.md(d).replace('/', '-') + '起）' : '') + '.zip';
-$('#btnDlAll').addEventListener('click', () => dlZip(DOCS, opts(), zipName($('#month').value, $('#effDate').value)));
-/** 下載勾選：全部醫師都勾 → ZIP；只勾部分 → 逐張 PNG */
-$('#btnDlSel').addEventListener('click', async () => {
-  const l = DOCS.filter(d => d._sel);
-  if (!l.length) return toast('請先勾選醫師', true);
-  if (l.length === DOCS.length) return dlZip(l, opts(), zipName($('#month').value, $('#effDate').value));
-  if (l.length > 3) toast('將下載 ' + l.length + ' 張 PNG；若瀏覽器詢問「是否允許下載多個檔案」，請按允許');
-  for (const d of l) { await dlOne(d, opts()); await new Promise(r => setTimeout(r, 450)); }
-});
-
-/* ---------------- 儲存 ---------------- */
-$('#btnSave').addEventListener('click', async () => {
-  if (!DOCS.length) return;
-  const month = $('#month').value, date = $('#effDate').value;
-  if (!confirm('把 ' + E.md(date) + ' 起的基準班表（' + DOCS.length + ' 位醫師）儲存到後台？\n同月份、同生效日的舊紀錄會被取代。')) return;
-  busy($('#btnSave'), true, '儲存中…');
-  try {
-    const versions = {};
-    PARSED.clinics.forEach(c => { const b = c.blocks[PICK.picks[c.clinic]]; versions[c.clinic] = b.title + (b.dates.length ? '（' + E.md(b.dates[0]) + '週）' : ''); });
-    const r = await api('saveBatch', {
-      month, date, sourceTitle: BOOK.title, sourceUrl: $('#srcUrl').value.trim(), versions, hasPrev: !!PREV,
-      doctors: DOCS.map(d => ({ name: d.name, title: d.title, home: d.home, cmp: d.cmp || '首版', sig: E.sig(d), entries: d.entries }))
-    });
-    toast('已儲存（批次 ' + r.id + (r.replaced ? '，已取代舊紀錄' : '') + '）');
-  } catch (e) { toast(e.message, true); } finally { busy($('#btnSave'), false); }
-});
-
-/* ---------------- 歷史查詢 ---------------- */
-let HB = null, HONLY = false;
-async function loadHistory(all) {
-  $('#hList').innerHTML = '<div class="hint">讀取中…</div>';
-  try {
-    const list = await api('listBatches', all ? {} : { month: $('#hMonth').value });
-    $('#hList').innerHTML = list.map(b => '<div class="bt" data-id="' + esc(b.id) + '"><div class="d">' + E.rocMonth(b.month) + '・' + E.md(b.date) + ' 起</div><div class="m">' + b.count + ' 位醫師' + (b.changed !== '' && b.changed !== undefined ? '・異動 ' + b.changed + ' 位' : '・首版') + '<br>' + esc(b.user) + '・' + esc(String(b.time).slice(0, 16)) + '<br>來源：' + esc(b.sourceTitle) + '</div></div>').join('') || '<div class="empty-state">這個月份還沒有儲存紀錄</div>';
-    $$('#hList .bt').forEach(el => el.addEventListener('click', () => openBatch(el.dataset.id)));
-  } catch (e) { $('#hList').innerHTML = '<div class="warnbox">' + esc(e.message) + '</div>'; }
-}
-$('#hMonth').addEventListener('change', () => loadHistory());
-$('#hAll').addEventListener('click', () => loadHistory(true));
-async function openBatch(id) {
-  $$('#hList .bt').forEach(el => el.classList.toggle('on', el.dataset.id === id));
-  try {
-    HB = await api('getBatch', { id });
-    HB.doctors.forEach(d => { d.clinics = Array.from(new Set(d.entries.map(e => e.clinic))); });
-    $('#hDetail').classList.remove('hide');
-    $('#hTitle').innerHTML = E.rocMonth(HB.meta.month) + ' 醫師門診表・<b>' + E.md(HB.meta.date) + ' 起</b>';
-    const v = HB.meta.versions || {};
-    $('#hMeta').innerHTML = '產出：' + esc(HB.meta.user) + '・' + esc(String(HB.meta.time).slice(0, 16)) + '・來源：' + (HB.meta.sourceUrl ? '<a href="' + esc(HB.meta.sourceUrl) + '" target="_blank">' + esc(HB.meta.sourceTitle) + '</a>' : esc(HB.meta.sourceTitle)) +
-      '<details><summary>各院區採用版本</summary><div class="lst">' + Object.keys(v).map(k => esc(k) + '：' + esc(v[k])).join('<br>') + '</div></details>';
-    await E.fontsReady(); renderHGallery();
-  } catch (e) { toast(e.message, true); }
-}
-const hOpts = () => ({ month: HB.meta.month, date: HB.meta.date, settings: ST });
-function hList() { const q = $('#hq').value.trim(); return HB.doctors.filter(d => (!q || d.name.indexOf(q) >= 0) && (!HONLY || (d.cmp && d.cmp !== '相同'))); }
-function renderHGallery() { galleryInto($('#hGallery'), hList(), hOpts(), d => dlOne(d, hOpts())); }
-$('#hq').addEventListener('input', () => HB && renderHGallery());
-$('#hOnlyChg').addEventListener('click', () => { HONLY = !HONLY; $('#hOnlyChg').classList.toggle('pri', HONLY); if (HB) renderHGallery(); });
-$('#hDlAll').addEventListener('click', () => HB && dlZip(hList(), hOpts(), zipName(HB.meta.month, HB.meta.date)));
-
-/* ---------------- 啟動 ---------------- */
-(function init() {
-  const d = new Date(); $('#hMonth').value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
-  if (!HAS_GAS) { $('#noGas').classList.remove('hide'); document.body.classList.remove('locked'); setConn(false, '未設定後台'); return; }
+/* ---------- 初始化 ---------- */
+function init() {
+  if (!HAS_GAS) { document.body.classList.remove('locked'); $('#noGas').classList.remove('hide'); setConn(false, '未設定後台'); return; }
   if (!TOKEN) return showLogin();
-  document.body.classList.remove('locked'); resetIdle(); boot();
-})();
+  document.body.classList.remove('locked'); start();
+}
+let CFG_OK = false; const cfgWaiters = [];
+const cfgReady = () => CFG_OK ? Promise.resolve(true) : new Promise(r => cfgWaiters.push(r));
+async function start() {
+  resetIdle();
+  $('#whoName').textContent = WHO ? WHO.user + (WHO.role === 'admin' ? '（管理者）' : '') : '';
+  const now = new Date(); now.setMonth(now.getMonth() - 1);
+  S.month = LS.get('rr_month', now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
+  $('#month').value = S.month;
+  const slowT = setTimeout(() => toast('後台連線較慢（Google 伺服器喚醒中），請稍候…'), 6000);
+  let ok = false;
+  for (let i = 0; i < 3 && !ok; i++) {
+    try { CFG = await api('getConfig'); ok = true; setConn(true, '後台已連線'); }
+    catch (e) { if (!TOKEN) { clearTimeout(slowT); return; } if (i === 2) { setConn(false, '後台連線失敗'); toast('後台連線失敗：' + e.message + '（請重新整理）', true); } else await new Promise(r => setTimeout(r, 1500)); }
+  }
+  clearTimeout(slowT); CFG_OK = ok; cfgWaiters.splice(0).forEach(f => f(ok));
+  $('#schedUrl').value = LS.get('rr_sched_' + S.month, '') || setting('最近班表連結', '');
+  loadLocal(); refreshRule(); renderChips(); selectClinic(S.current || (activeClinics()[0] || {}).name); renderSchedStatus();
+  loadSaved(); restoreRaw();
+  $('#monthTag').textContent = E.monthLabel(S.month);
+}
+async function loadSaved() {
+  const m = S.month;
+  try { const d = await api('getMonth', { month: m }); if (m !== S.month) return; S.saved = { records: d.records || [], clinicSum: d.clinicSum || [] }; }
+  catch (e) { S.saved = null; }
+  renderChips(); if (S.current) selectClinic(S.current);
+}
+function setConn(ok, t) { $('#connPill').className = 'pill ' + (ok ? 'ok' : 'bad'); $('#connText').textContent = t; }
+function refreshRule() {
+  $('#ruleText').innerHTML = `回診判定：看診日後 <b>1～${DAYS()}</b> 天內回同一位醫師；個人回診率排名門檻：BACK 開立率 ≥ <b>${Math.round(THRESH() * 100)}%</b>。<br>規則可在後台「系統設定」調整。`;
+}
+
+$$('[data-mm]').forEach(b => b.onclick = () => {
+  const k = +b.dataset.mm; let y, m;
+  if (k === 0) { const t = new Date(); y = t.getFullYear(); m = t.getMonth() + 1; }
+  else { [y, m] = ($('#month').value || S.month).split('-').map(Number); m += k; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } }
+  $('#month').value = y + '-' + String(m).padStart(2, '0');
+  $('#month').dispatchEvent(new Event('change'));
+});
+$('#month').addEventListener('change', e => {
+  if (!e.target.value) return;
+  saveLocal(); S.month = e.target.value; LS.set('rr_month', S.month);
+  $('#monthTag').textContent = E.monthLabel(S.month);
+  $('#schedUrl').value = LS.get('rr_sched_' + S.month, '') || setting('最近班表連結', '');
+  S.saved = null; loadLocal(); renderChips(); selectClinic(S.current); renderSchedStatus(); loadSaved(); restoreRaw();
+  if (!$('#pageReport').classList.contains('hide')) loadReport();
+});
+['#analysisDate', '#dStart', '#dEnd'].forEach(id => $(id).addEventListener('change', () => { saveLocal(); if (id !== '#analysisDate') { recomputeAll(); toast('區間已變更，如需請重新讀取班表'); } }));
+
+/* ---------- 班表 ---------- */
+$('#btnSched').addEventListener('click', readSchedule);
+async function readSchedule() {
+  const url = $('#schedUrl').value.trim();
+  if (!url) return toast('請貼上班表連結', true);
+  LS.set('rr_sched_' + S.month, url);
+  const btn = $('#btnSched'); busy(btn, true, '讀取中');
+  try {
+    const tabs = activeClinics().map(c => c.scheduleTab || c.name);
+    const data = await api('readSchedule', { url, tabs });
+    const start = E.isoDay($('#dStart').value), end = E.isoDay($('#dEnd').value);
+    const exclude = String(setting('班表排除診別關鍵字', '減重')).split(/[,，、]/).map(s => s.trim()).filter(Boolean);
+    S.schedHours = {}; const info = [];
+    activeClinics().forEach(c => {
+      const sh = data.sheets.find(x => x.name === (c.scheduleTab || c.name));
+      if (!sh) { info.push({ clinic: c.name, missing: true }); return; }
+      const r = E.parseSchedule(sh, { start, end, exclude });
+      S.schedHours[c.name] = r.hours;
+      const docs = clinicDoctors(c.name).map(d => d.name);
+      info.push({ clinic: c.name, found: docs.filter(n => r.hours[n]).length, total: docs.length, noHours: docs.filter(n => !r.hours[n]) });
+    });
+    S.schedInfo = { title: data.title, at: new Date().toLocaleString('zh-TW'), info };
+    Object.keys(S.clinics).forEach(cl => Object.values(S.clinics[cl].inputs || {}).forEach(inp => { if (!inp.hoursManual) delete inp.hours; }));
+    saveLocal(); renderSchedStatus(); selectClinic(S.current);
+    toast('班表讀取完成：' + data.title);
+  } catch (e) { toast('讀取班表失敗：' + e.message, true); }
+  busy(btn, false);
+}
+function renderSchedStatus() {
+  const si = S.schedInfo;
+  if (!si) { $('#schedDetail').innerHTML = '<div>尚未讀取</div>'; return; }
+  const miss = si.info.filter(x => x.missing).map(x => x.clinic);
+  $('#schedStatus').innerHTML = `<span class="tag g">已讀取</span> ${esc(si.title)}（${esc(si.at)}）` + (miss.length ? `<br><span class="tag r">找不到分頁</span> ${miss.join('、')}` : '');
+  $('#schedDetail').innerHTML = si.info.map(x => x.missing ? `<div>${x.clinic}：<span style="color:var(--bad)">找不到分頁</span></div>` :
+    `<div>${x.clinic}：${x.found}/${x.total} 位醫師有時數${x.noHours.length ? '　<span style="color:var(--warn)">無時數：' + x.noHours.join('、') + '</span>' : ''}</div>`).join('');
+}
+
+/* ---------- 檔案 ---------- */
+function readFile(file) {
+  return new Promise((ok, no) => {
+    const fr = new FileReader();
+    fr.onload = () => { try { const wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; ok(XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' })); } catch (e) { no(e); } };
+    fr.onerror = () => no(fr.error); fr.readAsArrayBuffer(file);
+  });
+}
+function guessClinic(fname) {
+  const base = fname.replace(/\.[^.]+$/, '');
+  const pre = base.split(/[_＿\-\s]/)[0];
+  let c = activeClinics().find(c => c.fileKey === pre || c.name === pre);
+  if (!c) c = activeClinics().find(c => base.indexOf(c.fileKey || c.name) >= 0);
+  return c ? c.name : null;
+}
+async function handleFiles(files, forceClinic) {
+  if (!CFG_OK) { toast('等待後台連線完成後自動讀取檔案…'); const ok = await cfgReady(); if (!ok) return toast('後台未連線，無法判斷院區，請重新整理後再放入檔案', true); }
+  const res = []; let fail = [];
+  for (const f of files) {
+    const cl = forceClinic || guessClinic(f.name);
+    if (!cl) { fail.push(f.name + '（院區清單找不到「' + f.name.replace(/\.[^.]+$/, '').split(/[_＿\-\s]/)[0] + '」，請確認檔名或後台院區清單）'); continue; }
+    try {
+      const rows = await readFile(f);
+      let type = /慢箋|慢專/.test(f.name) ? 'slow' : /BACK/i.test(f.name) ? 'back' : /看診/.test(f.name) ? 'visit' : null;
+      let parsed;
+      if (type === 'slow') parsed = E.parseSlowRows(rows);
+      else if (type !== 'back') { try { parsed = E.parseVisitRows(rows); type = 'visit'; } catch (e) { if (type === 'visit') throw e; } }
+      if (!parsed) { parsed = E.parseBackRows(rows); type = 'back'; }
+      // 檢查檔案日期是否落在分析區間（避免放錯月份）
+      const st = E.isoDay($('#dStart').value), en = E.isoDay($('#dEnd').value);
+      const inR = parsed.rows.filter(r => r.day >= st && r.day <= en).length;
+      if (parsed.rows.length && !inR) {
+        const ds = parsed.rows.map(r => r.day);
+        throw new Error('檔案日期 ' + E.dayRoc(Math.min(...ds)) + '～' + E.dayRoc(Math.max(...ds)) + ' 不在分析區間（' + E.monthLabel(S.month) + '），請確認月份或檔案');
+      }
+      RAW[cl] = RAW[cl] || {};
+      RAW[cl][type] = parsed;
+      const c = cs(cl);
+      if (type === 'visit') { c.visitFile = f.name; c.vStats = { total: parsed.totalRows, kept: parsed.rows.length, ...parsed.stats, from: parsed.minDay, to: parsed.maxDay }; }
+      else if (type === 'slow') { c.slowFile = f.name; c.sStats = { total: parsed.rows.length }; }
+      else { c.backFile = f.name; c.bStats = { total: parsed.rows.length }; }
+      res.push(cl);
+    } catch (e) { fail.push(f.name + '：' + e.message); }
+  }
+  new Set(res).forEach(cl => recompute(cl));
+  saveLocal(); persistRaw(); renderChips();
+  if (res.length) selectClinic(forceClinic || res[res.length - 1]);
+  if (fail.length) toast('部分檔案無法讀取：' + fail.join('；'), true);
+  else if (res.length) toast('已讀取 ' + res.length + ' 個檔案');
+}
+function bindDrop(el, input, clinic) {
+  el.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => { handleFiles(Array.from(input.files), clinic); input.value = ''; });
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('hover'); });
+  el.addEventListener('dragleave', () => el.classList.remove('hover'));
+  el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('hover'); handleFiles(Array.from(e.dataTransfer.files), clinic); });
+}
+bindDrop($('#dropAll'), $('#fileAll'));
+$('#btnSaveAll').onclick = saveAll;
+$('#btnResetLocal').onclick = () => {
+  if (!confirm('清除 ' + E.monthLabel(S.month) + ' 在這台電腦上放過的檔案與輸入值？\n（後台已儲存的資料不受影響，畫面會改顯示後台資料）')) return;
+  S.clinics = {}; Object.keys(RAW).forEach(k => delete RAW[k]); saveLocal(); persistRaw(); renderChips(); selectClinic(S.current); loadSaved();
+  toast('已清除本月暫存');
+};
+
+/* ---------- 計算 ---------- */
+function recompute(cl, keep) {
+  const raw = RAW[cl]; if (!raw) return;
+  const c = cs(cl);
+  const start = E.isoDay($('#dStart').value), end = E.isoDay($('#dEnd').value);
+  const inRange = r => r.day >= start && r.day <= end;
+  // 回診判定可用到區間後的資料（若檔案有），但統計對象僅限區間內看診
+  const allV = raw.visit ? raw.visit.rows : [];
+  const r = E.computeClinic(allV, raw.back ? raw.back.rows.filter(inRange) : [], {
+    clinic: cl, visitMap: CFG.visitMap, backMap: CFG.backMap, doctors: clinicDoctors(cl).map(d => d.name), days: DAYS(),
+    stripFirst: String(setting('BACK醫師別去首碼對應', 'Y')).toUpperCase() !== 'N'
+  });
+  // 看診名單只統計區間內
+  if (raw.visit) {
+    const inR = E.computeClinic(allV.filter(inRange), [], { clinic: cl, visitMap: CFG.visitMap, backMap: CFG.backMap, doctors: [], days: DAYS() });
+    Object.keys(r.doctors).forEach(d => { r.doctors[d].patients = (inR.doctors[d] || {}).patients || 0; });
+    // 院所回診：起始看診需在區間內
+    const w = countWide(allV, cl, start, end);
+    Object.keys(r.doctors).forEach(d => r.doctors[d].wRevN = w[d] || 0);
+    Object.keys(w).forEach(d => { if (!r.doctors[d]) r.doctors[d] = { patients: (inR.doctors[d] || {}).patients || 0, backN: 0, nRevN: 0, wRevN: w[d] }; });
+  }
+  c.counts = r.doctors; c.unmappedVisit = r.unmappedVisit; c.unmappedBack = r.unmappedBack; c.rawCodes = r.rawCodes; c.outside = r.outside;
+  c.slowCounts = null;
+  if (raw.slow) {
+    const sr = raw.slow.rows.filter(inRange);
+    const sc = E.countSlow(sr, { clinic: cl, visitMap: CFG.visitMap });
+    c.slowCounts = sc.counts;
+    c.sStats = Object.assign(c.sStats || {}, { total: raw.slow.rows.length, inRange: sr.length });
+    c.rawCodes = c.rawCodes || { visit: {}, back: {} };
+    Object.entries(sc.unmapped).forEach(([k, n]) => { c.unmappedVisit[k] = (c.unmappedVisit[k] || 0) + n; c.rawCodes.visit[k] = c.rawCodes.visit[k] || sc.raw[k]; });
+  }
+  c.hasVisit = !!raw.visit; c.hasBack = !!raw.back;
+  if (c.vStats) c.vStats.inRange = allV.filter(inRange).length;
+  if (c.bStats && raw.back) c.bStats.inRange = raw.back.rows.filter(inRange).length;
+  if (!keep) { c.dirty = true; c.savedAt = null; }
+}
+function countWide(visits, cl, start, end) {
+  const vmap = {}; CFG.visitMap.filter(x => x.clinic === cl && x.active !== false).forEach(x => vmap[E.normCode(x.code)] = x.doctor);
+  const idx = {};
+  visits.forEach(v => { const d = vmap[v.code]; if (!d || d === '不列入') return; (idx[v.id + '|' + d] = idx[v.id + '|' + d] || []).push(v.day); });
+  const out = {}, N = DAYS();
+  visits.forEach(v => {
+    if (v.day < start || v.day > end) return;
+    const d = vmap[v.code]; if (!d || d === '不列入') return;
+    if (idx[v.id + '|' + d].some(x => x - v.day >= 1 && x - v.day <= N)) out[d] = (out[d] || 0) + 1;
+  });
+  return out;
+}
+function recomputeAll() { Object.keys(RAW).forEach(recompute); saveLocal(); renderChips(); selectClinic(S.current); }
+
+function savedRec(cl, name) { return ((S.saved || {}).records || []).find(r => r.clinic === cl && r.doctor === name) || null; }
+function savedSum(cl) { return ((S.saved || {}).clinicSum || []).find(r => r.clinic === cl) || null; }
+function doctorRow(cl, d) {
+  const c = cs(cl); const inp = c.inputs[d.name] || (c.inputs[d.name] = {});
+  const cnt = c.counts ? (c.counts[d.name] || { patients: 0, backN: 0, nRevN: 0, wRevN: 0 }) : null;
+  const sv = savedRec(cl, d.name);   // 沒放的檔案項目，帶入後台已儲存的資料
+  const svn = k => sv ? E.numOrNull(sv[k]) : null;
+  const schedH = (S.schedHours[cl] || {})[d.name];
+  const hours = inp.hoursManual ? inp.hours : (schedH !== undefined ? schedH : (inp.hours !== undefined ? inp.hours : svn('hours')));
+  const patients = cnt && c.hasVisit ? cnt.patients : svn('patients');
+  const visits = inp.visitsManual ? inp.visits : (cnt && c.hasVisit ? patients : svn('visits'));
+  const slowFromFile = c.slowCounts ? (c.slowCounts[d.name] || 0) : null;
+  const slowN = inp.slowN !== undefined && inp.slowN !== '' ? inp.slowN : (slowFromFile !== null ? slowFromFile : svn('slowN'));
+  const base = {
+    doctor: d.name, title: d.title, hours: E.numOrNull(hours), patients, visits: E.numOrNull(visits), slowN: E.numOrNull(slowN),
+    backN: cnt && c.hasBack ? cnt.backN : svn('backN'), nRevN: cnt && c.hasBack && c.hasVisit ? cnt.nRevN : svn('nRevN'), wRevN: cnt && c.hasVisit ? cnt.wRevN : svn('wRevN')
+  };
+  if (base.patients === null) base.patients = base.visits;
+  return E.metrics(base);
+}
+/** 院區總人次預設＝看診名單分析區間內的總筆數（已排除還卡、欠款；含不列入的支援醫師） */
+function visitTotal(cl) { const v = (S.clinics[cl] || {}).vStats; if (!v || !(S.clinics[cl] || {}).visitFile) return null; return v.inRange !== undefined ? v.inRange : (v.kept ?? null); }
+/** 院區慢箋人次預設＝慢箋檔分析區間內的總筆數（含不列入的支援醫師） */
+function slowFileTotal(cl) { const c = S.clinics[cl] || {}; if (!c.slowFile || !c.sStats) return null; return c.sStats.inRange !== undefined ? c.sStats.inRange : (c.sStats.total ?? null); }
+function clinicSummary(cl, rows) {
+  const c = cs(cl); const s = c.summary || (c.summary = {});
+  const autoSlow = rows.reduce((a, r) => a + (r.slowN || 0), 0);
+  const ss = savedSum(cl);
+  const localSlow = !!c.slowCounts || Object.values(c.inputs || {}).some(i => i.slowN !== undefined && i.slowN !== '');
+  const fileSlow = slowFileTotal(cl);   // 有放慢箋檔：院區慢箋人次＝檔案總筆數（含支援醫師）
+  const slowSrc = s.slowManual ? 'manual' : (fileSlow !== null ? 'file' : (!localSlow && ss && E.numOrNull(ss.slow) !== null ? 'saved' : 'sum'));
+  const slow = slowSrc === 'manual' ? E.numOrNull(s.slow) : slowSrc === 'file' ? fileSlow : slowSrc === 'saved' ? E.numOrNull(ss.slow) : (rows.some(r => r.slowN !== null) ? autoSlow : null);
+  const autoTotal = visitTotal(cl);
+  const totalManual = s.total !== undefined && s.total !== '';
+  const total = totalManual ? E.numOrNull(s.total) : (autoTotal !== null ? autoTotal : (ss ? E.numOrNull(ss.total) : null));
+  return { total, slow, slowRate: total && slow !== null ? E.r4(slow / total) : null, autoSlow, autoTotal, totalManual, slowSrc, fileSlow };
+}
+
+/* ---------- 院區畫面 ---------- */
+function status(cl) { const c = S.clinics[cl]; const hasSv = !!savedSum(cl) || ((S.saved || {}).records || []).some(r => r.clinic === cl);
+  if (!c) return hasSv ? 'st-saved' : ''; if (c.savedAt || (hasSv && !c.dirty)) return 'st-saved'; if (c.visitFile || c.backFile || Object.values(c.inputs || {}).some(i => i.slowN !== undefined && i.slowN !== '')) return 'st-file'; return ''; }
+function renderChips() {
+  $('#clinicChips').innerHTML = activeClinics().map(c => `<button class="chip ${status(c.name)} ${S.current === c.name ? 'on' : ''}" data-cl="${esc(c.name)}"><span class="s"></span>${esc(c.name)}</button>`).join('') +
+    `<span class="hint" style="align-self:center;margin-left:8px">已儲存 ${activeClinics().filter(c => status(c.name) === 'st-saved').length} / ${activeClinics().length} 院區</span>`;
+  $$('#clinicChips .chip').forEach(b => b.onclick = () => selectClinic(b.dataset.cl));
+}
+function selectClinic(cl) {
+  if (!cl) return;
+  S.current = cl; renderChips();
+  const c = cs(cl), docs = clinicDoctors(cl);
+  const rows = docs.map(d => doctorRow(cl, d));
+  const sm = clinicSummary(cl, rows);
+  const vs = c.vStats, stale = (c.visitFile && !RAW[cl]?.visit) || (c.backFile && !RAW[cl]?.back) || (c.slowFile && !RAW[cl]?.slow);
+  const mappedV = new Set(CFG.visitMap.filter(x => x.clinic === cl && x.active !== false).map(x => E.normCode(x.code)));
+  const mappedB = new Set(CFG.backMap.filter(x => x.clinic === cl && x.active !== false).map(x => E.normCode(x.code)));
+  const unV = Object.entries(c.unmappedVisit || {}).filter(([k]) => !mappedV.has(E.normCode(k)));
+  const unB = Object.entries(c.unmappedBack || {}).filter(([k]) => !mappedB.has(E.normCode(k)) && !mappedV.has(E.normCode(String(k).slice(1))));
+  const docOpts = ['<option value="">— 指定醫師 —</option>'].concat(CFG.doctors.filter(d => d.active !== false).map(d => `<option ${d.clinic === cl ? '' : 'data-other'} value="${esc(d.name)}">${esc(d.name)}${d.clinic === cl ? '' : '（' + esc(d.clinic) + '）'}</option>`)).concat(['<option value="不列入">不列入（支援／其他）</option>']).join('');
+  const f = (v, t) => E.fmt(v, t, 2);
+  $('#clinicPanel').innerHTML = `
+  <div class="panel">
+    <div>
+      <div class="slot drop" id="dropOne" style="text-align:left;padding:14px">
+        <div class="t"><span>${esc(cl)}_看診名單</span>${c.visitFile ? '<span class="tag g">已讀取</span>' : '<span class="tag y">未放入</span>'}</div>
+        ${c.visitFile ? `<div class="fn">${esc(c.visitFile)}</div><div class="hint">資料 ${vs.total} 筆，排除還卡 ${vs['還卡']}、欠款 ${vs['欠款']}${vs['欠款對沖'] ? '（含對沖 ' + vs['欠款對沖'] + '）' : ''}，納入 <b>${vs.kept}</b> 筆<br>日期 ${vs.from ? E.dayRoc(vs.from) + '～' + E.dayRoc(vs.to) : '-'}${vs.inRange !== undefined && vs.inRange < vs.kept ? `<br>區間內 <b>${vs.inRange}</b> 筆列入統計，其餘 ${vs.kept - vs.inRange} 筆僅用來判斷回診` : ''}</div>` : '<div class="empty">點此或拖曳檔案（可同時放兩個檔）</div>'}
+        <div class="t" style="margin-top:12px"><span>${esc(cl)}_BACK</span>${c.backFile ? '<span class="tag g">已讀取</span>' : '<span class="tag y">未放入</span>'}</div>
+        ${c.backFile ? `<div class="fn">${esc(c.backFile)}</div><div class="hint">BACK 開立 ${c.bStats.total} 筆${c.bStats.inRange !== undefined && c.bStats.inRange < c.bStats.total ? `，區間內 <b>${c.bStats.inRange}</b> 筆列入統計` : ''}</div>` : '<div class="empty">點此或拖曳檔案</div>'}
+        <div class="t" style="margin-top:12px"><span>${esc(cl)}_慢箋 <small class="hint">（選填）</small></span>${c.slowFile ? '<span class="tag g">已讀取</span>' : '<span class="tag y">未放入</span>'}</div>
+        ${c.slowFile ? `<div class="fn">${esc(c.slowFile)}</div><div class="hint">慢箋 ${c.sStats.total} 筆${c.sStats.inRange !== undefined && c.sStats.inRange < c.sStats.total ? `，區間內 <b>${c.sStats.inRange}</b> 筆` : ''}，已自動帶入各醫師慢專人次</div>` : '<div class="empty">放入後自動計算慢專人次；沒放就維持手動輸入</div>'}
+      </div>
+      <input type="file" id="fileOne" multiple accept=".xlsx,.xls" class="hide">
+      ${stale ? '<div class="warnbox mb">⚠ 這個院區的原始檔案不在這台電腦的暫存中，目前數字是舊的計算結果（可能還沒套用醫師對照）。請重新放入這個院區的兩個檔案：<br><button class="btn sm pri" style="margin-top:8px" id="btnReDrop">重新放入 ' + esc(cl) + ' 的檔案</button></div>' : ''}
+      ${(unV.length || unB.length) ? `<div class="warnbox map"><b>有代碼尚未對應醫師</b>（對應後自動重算並寫入後台清單）<div class="hint">BACK 醫師別會自動去掉第一碼比對（123 → 醫 23；101 → 醫 01），通常只要對應「醫」代碼即可；支援醫師選「不列入」。</div>
+        ${unV.map(([k, n]) => { const raw = ((c.rawCodes || {}).visit || {})[k] || k; return `<div class="it"><span class="tag b">醫 ${esc(raw)}</span><span style="white-space:nowrap;flex:0 0 58px">${n} 筆</span><select data-map="visit" data-code="${esc(raw)}">${docOpts}</select></div>`; }).join('')}
+        ${unB.map(([k, n]) => { const raw = ((c.rawCodes || {}).back || {})[k] || k; return `<div class="it"><span class="tag p">醫師別 ${esc(raw)}</span><span style="white-space:nowrap;flex:0 0 58px">${n} 筆</span><select data-map="back" data-code="${esc(raw)}">${docOpts}</select></div>`; }).join('')}
+        <button class="btn sm pri" id="btnMap" style="margin-top:6px">儲存對照並重算</button></div>` : ''}
+      ${(c.outside || []).filter(n => n !== '不列入').length ? `<div class="info" style="margin-top:10px">以下醫師代碼有資料但不屬於本院區醫師清單，不列入報表：${c.outside.map(esc).join('、')}</div>` : ''}
+    </div>
+    <div>
+      <div class="tbl-wrap"><table class="dt">
+        <thead><tr><th>醫師</th><th>上診時數</th><th>看診人次</th><th>慢專人次</th><th>慢專比例</th><th>平均人次/hr</th><th>BACK開立</th><th>開立率</th><th>個人回診數</th><th>個人回診率</th><th>院所回診數</th><th>院所回診率</th></tr></thead>
+        <tbody>${rows.map(r => {
+          const inp = c.inputs[r.doctor] || {};
+          return `<tr><td class="k">${esc(r.doctor)}<span class="hint">${esc(r.title)}</span></td>
+          <td><input data-f="hours" data-d="${esc(r.doctor)}" value="${r.hours ?? ''}" class="${inp.hoursManual ? 'man' : (r.hours !== null ? 'auto' : '')}" title="預設帶入班表時數，可手動修改"></td>
+          <td><input data-f="visits" data-d="${esc(r.doctor)}" value="${r.visits ?? ''}" class="${inp.visitsManual ? 'man' : (r.visits !== null ? 'auto' : '')}" title="預設帶入系統依看診名單計算的人次${r.patients !== null && r.patients !== undefined ? '（' + r.patients + '）' : ''}，可手動修改"></td>
+          <td><input data-f="slowN" data-d="${esc(r.doctor)}" value="${r.slowN ?? ''}" class="${inp.slowN !== undefined && inp.slowN !== '' ? (c.slowCounts ? 'man' : '') : (c.slowCounts ? 'auto' : '')}" placeholder="輸入" title="${c.slowCounts ? '由慢箋檔自動計算' + (c.slowCounts[r.doctor] !== undefined ? '（' + c.slowCounts[r.doctor] + '）' : '') + '，可手動修改；清空即恢復' : '手動輸入，或放入「' + esc(cl) + '_慢箋」檔自動計算'}"></td>
+          <td>${f(r.slowRate, 'pct')}</td><td>${f(r.vph, 'n2')}</td>
+          <td>${r.backN ?? ''}</td><td>${f(r.backRate, 'pct')}</td>
+          <td>${r.nRevN ?? ''}</td><td>${f(r.nRevRate, 'pct')}${r.backRate !== null && r.backRate < THRESH() ? ' <span class="tag y" title="開立率未達門檻，不列排名">不排名</span>' : ''}</td>
+          <td>${r.wRevN ?? ''}</td><td>${f(r.wRevRate, 'pct')}</td></tr>`; }).join('') || '<tr><td colspan="12" class="empty-state">此院區尚無醫師，請到後台「醫師清單」新增</td></tr>'}
+        </tbody></table></div>
+      <div class="hint" style="margin-top:6px">綠底＝系統帶入（班表、看診名單、慢箋檔）；黃底＝已手動修改（清空即恢復系統值）。院區總人次預設為看診名單總筆數（含支援醫師，已排除還卡、欠款）；院區慢箋人次預設為慢箋檔總筆數（含支援醫師）。看診人次預設由看診名單自動計算，可手動修改；平均人次/hr、慢專比例、BACK開立率、院所回診率都以「看診人次」計算。</div>
+      <div class="sum">
+        <div class="box"><div class="l">院區總人次 ${sm.totalManual ? '<span class="tag y">手動</span>' : (sm.autoTotal !== null ? '<span class="tag g">看診名單</span>' : '')}</div><input id="sumTotal" class="${sm.totalManual ? 'man' : (sm.autoTotal !== null ? 'auto' : '')}" value="${sm.total ?? ''}" placeholder="輸入" title="${sm.autoTotal !== null ? '預設為看診名單總筆數（' + sm.autoTotal + '，已排除還卡、欠款），可手動修改；清空即恢復' : '放入看診名單後自動帶入，或手動輸入'}"></div>
+        <div class="box"><div class="l">院區慢箋人次 ${sm.slowSrc === 'manual' ? '<span class="tag y">手動</span>' : sm.slowSrc === 'file' ? '<span class="tag g">慢箋檔</span>' : sm.slowSrc === 'saved' ? '<span class="tag g">後台</span>' : '<span class="tag g">醫師加總</span>'}</div><input id="sumSlow" class="${sm.slowSrc === 'manual' ? 'man' : (sm.slowSrc === 'file' ? 'auto' : '')}" value="${sm.slow ?? ''}" title="${sm.fileSlow !== null ? '預設為慢箋檔總筆數（' + sm.fileSlow + '，含支援醫師），可手動修改；清空即恢復' : '沒放慢箋檔時為各醫師慢專人次加總，可手動修改'}"></div>
+        <div class="box"><div class="l">院區慢箋比例</div><div class="v">${f(sm.slowRate, 'pct') || '-'}</div></div>
+        <div class="box"><div class="l">全院區總人次（目前加總）</div><div class="v">${grandTotal().toLocaleString()}</div></div>
+      </div>
+      <div class="bar">
+        <span class="hint grow">${c.savedAt ? '<span class="tag g">已儲存</span> ' + esc(c.savedAt) : (!c.counts && (savedSum(cl) || docs.some(d => savedRec(cl, d.name))) ? '<span class="tag g">已載入後台資料</span> 目前顯示的是後台已儲存的數字；重新放入檔案或修改後再儲存即可覆蓋' : '尚未儲存到後台')}</span>
+        <button class="btn" id="btnClear">清除本院區</button>
+        <button class="btn pri" id="btnSave">儲存本院區到後台</button>
+      </div>
+    </div>
+  </div>`;
+  bindDrop($('#dropOne'), $('#fileOne'), cl);
+  const rd = $('#btnReDrop'); if (rd) rd.onclick = () => $('#fileOne').click();
+  $$('#clinicPanel input[data-f]').forEach(el => el.addEventListener('change', () => {
+    const inp = c.inputs[el.dataset.d] || (c.inputs[el.dataset.d] = {}); const v = el.value.trim(); const k = el.dataset.f;
+    if (k === 'slowN') { if (v === '') delete inp.slowN; else inp.slowN = v; }
+    else if (v === '') { delete inp[k]; delete inp[k + 'Manual']; }
+    else { inp[k] = v; inp[k + 'Manual'] = true; }
+    c.savedAt = null; c.dirty = true; saveLocal(); selectClinic(cl);
+  }));
+  $('#sumTotal').addEventListener('change', e => { c.summary.total = e.target.value.trim(); c.savedAt = null; c.dirty = true; saveLocal(); selectClinic(cl); });
+  $('#sumSlow').addEventListener('change', e => { const v = e.target.value.trim(); if (v === '') { c.summary.slowManual = false; delete c.summary.slow; } else { c.summary.slow = v; c.summary.slowManual = true; } c.savedAt = null; c.dirty = true; saveLocal(); selectClinic(cl); });
+  $('#btnSave').onclick = () => saveClinic(cl);
+  $('#btnClear').onclick = () => { if (!confirm('清除「' + cl + '」本月已放入的檔案與輸入值？（不影響後台已儲存資料）')) return; delete S.clinics[cl]; delete RAW[cl]; persistRaw(); saveLocal(); selectClinic(cl); };
+  const bm = $('#btnMap'); if (bm) bm.onclick = () => saveMaps(cl);
+}
+function grandTotal() { return activeClinics().reduce((a, c) => { const s = (S.clinics[c.name] || {}).summary || {}; const v = s.total !== undefined && s.total !== '' ? E.numOrNull(s.total) : (visitTotal(c.name) !== null ? visitTotal(c.name) : E.numOrNull((savedSum(c.name) || {}).total)); return a + (v || 0); }, 0); }
+
+async function saveMaps(cl) {
+  const items = $$('#clinicPanel select[data-map]').filter(s => s.value).map(s => ({ clinic: cl, type: s.dataset.map, code: s.dataset.code, doctor: s.value }));
+  if (!items.length) return toast('請先選擇要對應的醫師', true);
+  const btn = $('#btnMap'); busy(btn, true);
+  try {
+    if (HAS_GAS) await api('addCodeMaps', { items });
+    items.forEach(it => {
+      const list = it.type === 'back' ? CFG.backMap : CFG.visitMap;
+      for (let i = list.length - 1; i >= 0; i--) if (list[i].clinic === cl && E.normCode(list[i].code) === E.normCode(it.code)) list.splice(i, 1);
+      list.push({ clinic: cl, code: it.code, doctor: it.doctor, active: true });
+    });
+    recompute(cl); saveLocal(); selectClinic(cl);
+    toast(HAS_GAS ? '已寫入後台代碼清單並重算' : '已套用（離線模式未寫入後台）');
+  } catch (e) { toast('儲存失敗：' + e.message, true); busy(btn, false); }
+}
+
+function buildPayload(cl) {
+  const c = cs(cl);
+  const rows = clinicDoctors(cl).map(d => doctorRow(cl, d)).filter(r => [r.hours, r.visits, r.slowN, r.backN].some(v => v !== null));
+  if (!rows.length) return null;
+  const sm = clinicSummary(cl, rows);
+  const ad = $('#analysisDate').value.trim();
+  return { rows, payload: { month: S.month, clinic: cl, analysisDate: ad,
+    rows: rows.map(r => ({ doctor: r.doctor, title: r.title, hours: r.hours, patients: r.patients, visits: r.visits, slowN: r.slowN, slowRate: r.slowRate, vph: r.vph,
+      backN: r.backN, backRate: r.backRate, nRevN: r.nRevN, nRevRate: r.nRevRate, wRevN: r.wRevN, wRevRate: r.wRevRate, analysisDate: ad,
+      source: '前台分析 ' + [c.visitFile, c.backFile].filter(Boolean).join(' / ') })),
+    summary: { total: sm.total, slow: sm.slow, slowRate: sm.slowRate } } };
+}
+async function saveClinic(cl) {
+  const c = cs(cl);
+  const b = buildPayload(cl);
+  if (!b) return toast('本院區沒有可儲存的資料', true);
+  const miss = b.rows.filter(r => r.slowN === null).map(r => r.doctor);
+  if (miss.length && !confirm('以下醫師尚未輸入慢專人次：' + miss.join('、') + '\n仍要儲存嗎？')) return;
+  const btn = $('#btnSave'); busy(btn, true, '儲存中');
+  try {
+    await api('saveClinicMonth', b.payload);
+    c.savedAt = new Date().toLocaleString('zh-TW'); c.dirty = false; saveLocal(); loadSaved();
+    toast(cl + ' 已儲存（' + b.rows.length + ' 位醫師）');
+  } catch (e) { toast('儲存失敗：' + e.message, true); busy(btn, false); }
+}
+/** 批次儲存：把本月「有放檔案或改過數字、還沒儲存」的院區一次存到後台 */
+async function saveAll() {
+  const todo = activeClinics().map(c => c.name).filter(cl => { const c = S.clinics[cl]; return c && c.dirty && !c.savedAt; });
+  if (!todo.length) return toast('目前沒有需要儲存的院區（都已儲存，或尚未放入檔案／修改）');
+  const plans = todo.map(cl => ({ cl, b: buildPayload(cl) })).filter(x => x.b);
+  const miss = [];
+  plans.forEach(x => { const m = x.b.rows.filter(r => r.slowN === null).map(r => r.doctor); if (m.length) miss.push(x.cl + '：' + m.join('、')); });
+  const noTotal = plans.filter(x => x.b.payload.summary.total === null).map(x => x.cl);
+  let msg = '將儲存以下 ' + plans.length + ' 個院區到後台：\n' + plans.map(x => x.cl).join('、');
+  if (miss.length) msg += '\n\n⚠ 尚未輸入慢專人次：\n' + miss.join('\n');
+  if (noTotal.length) msg += '\n\n⚠ 尚未輸入院區總人次：' + noTotal.join('、');
+  if (!confirm(msg + '\n\n確定儲存嗎？')) return;
+  const btn = $('#btnSaveAll'); busy(btn, true, '儲存中');
+  const ok = [], fail = [];
+  for (let i = 0; i < plans.length; i++) {
+    const { cl, b } = plans[i];
+    btn.innerHTML = '<span class="spin"></span> 儲存中 ' + (i + 1) + '/' + plans.length;
+    try { await api('saveClinicMonth', b.payload); const c = cs(cl); c.savedAt = new Date().toLocaleString('zh-TW'); c.dirty = false; ok.push(cl); }
+    catch (e) { fail.push(cl + '（' + e.message + '）'); if (/重新登入/.test(e.message)) break; }
+  }
+  saveLocal(); busy(btn, false); loadSaved();
+  if (fail.length) toast('已儲存 ' + ok.length + ' 院區；失敗：' + fail.join('、'), true);
+  else toast('已儲存 ' + ok.length + ' 個院區：' + ok.join('、'));
+}
+
+/* ================= 結果報表 ================= */
+const PRESET_LABEL = { '完整版': '完整版／老闆版' };
+const PRESETS = {
+  '完整版': { cols: { hours: 'vd', visits: 'vd', slowN: 'v', slowRate: 'vr', vph: 'vdr', backN: 'v', backRate: 'v', nRevN: 'vd', nRevRate: 'vdr', wRevN: 'vd', wRevRate: 'vdr' }, cs: 'total,slow,rate,rank', avg: 1, grand: 1, markNew: 0 },
+  '院長版': { cols: { slowRate: 'vr', vph: 'vdr', backRate: 'v', nRevRate: 'vdr', wRevRate: 'vdr' }, cs: 'total,slow,rate,rank', avg: 1, grand: 0, markNew: 0 }
+};
+let RPT = { view: LS.get('rr_view2', 'image'), data: null, cfg: LS.get('rr_rptcfg', null), preset: LS.get('rr_preset', '完整版') };
+if (RPT.preset === '老闆版' || RPT.preset === '全部欄位') RPT.preset = '完整版';
+function presetToCfg(p) {
+  const cols = {}; E.METRICS.forEach(m => { const s = p.cols[m.k] || ''; cols[m.k] = { v: s.includes('v'), d: s.includes('d'), r: s.includes('r') }; });
+  const csSet = p.cs.split(',');
+  return { cols, showClinic: { total: csSet.includes('total'), slow: csSet.includes('slow'), rate: csSet.includes('rate'), rank: csSet.includes('rank') }, showAvg: !!p.avg, showGrand: !!p.grand, markNew: !!p.markNew };
+}
+function buildCfgUI() {
+  const customs = LS.get('rr_custom', {});
+  $('#presetBtns').innerHTML = Object.keys(PRESETS).map(k => `<button class="btn ${RPT.preset === k ? 'on' : ''}" data-p="${k}">${PRESET_LABEL[k] || k}</button>`).join('');
+  $$('#presetBtns .btn').forEach(b => b.onclick = () => { applyPreset(b.dataset.p); });
+  $('#customSel').innerHTML = '<option value="">— 自訂版型 —</option>' + Object.keys(customs).map(k => `<option ${RPT.preset === 'c:' + k ? 'selected' : ''}>${esc(k)}</option>`).join('');
+  // 欄位矩陣
+  let h = '<tr><th style="text-align:left">項目</th><th>值</th><th>增減</th><th>排名</th></tr>'; let lastG = '';
+  E.METRICS.forEach(m => {
+    if (m.group !== lastG && E.METRICS.filter(x => x.group === m.group).length > 1) h += `<tr class="grp"><td colspan="4">${m.group}</td></tr>`;
+    lastG = m.group;
+    const c = RPT.cfg.cols[m.k] || {};
+    h += `<tr><td>${m.label}</td>` + ['v', 'd', 'r'].map(s => `<td><input type="checkbox" data-col="${m.k}" data-s="${s}" ${c[s] ? 'checked' : ''}></td>`).join('') + '</tr>';
+  });
+  $('#colMatrix').innerHTML = h;
+  $$('#colMatrix input').forEach(el => el.onchange = () => { RPT.cfg.cols[el.dataset.col] = RPT.cfg.cols[el.dataset.col] || {}; RPT.cfg.cols[el.dataset.col][el.dataset.s] = el.checked; custom(); });
+  $$('[data-cs]').forEach(el => { el.checked = !!RPT.cfg.showClinic[el.dataset.cs]; el.onchange = () => { RPT.cfg.showClinic[el.dataset.cs] = el.checked; custom(); }; });
+  $('#optAvg').checked = RPT.cfg.showAvg; $('#optGrand').checked = RPT.cfg.showGrand;
+  $('#optAvg').onchange = e => { RPT.cfg.showAvg = e.target.checked; custom(); };
+  $('#optGrand').onchange = e => { RPT.cfg.showGrand = e.target.checked; custom(); };
+  buildFilterUI();
+}
+function buildFilterUI() {
+  const recs = RPT.data ? RPT.data.records : [];
+  const clinics = activeClinics().map(c => c.name).filter(n => recs.some(r => r.clinic === n)).concat(Array.from(new Set(recs.map(r => r.clinic))).filter(n => !activeClinics().some(c => c.name === n)));
+  const sel = RPT.cfg.clinics || [];
+  $('#ckAllClinic').checked = !sel.length;
+  $('#clinicCks').innerHTML = clinics.map(c => `<label class="ck"><input type="checkbox" data-fc="${esc(c)}" ${!sel.length || sel.includes(c) ? 'checked' : ''}>${esc(c)}</label>`).join('') || '<span class="hint">尚無資料</span>';
+  $('#ckAllClinic').onchange = e => { RPT.cfg.clinics = e.target.checked ? [] : ['__none__']; RPT.cfg.doctors = []; buildFilterUI(); custom(true); };
+  $$('[data-fc]').forEach(el => el.onchange = () => {
+    const on = $$('[data-fc]').filter(x => x.checked).map(x => x.dataset.fc);
+    RPT.cfg.clinics = on.length === clinics.length ? [] : on.length ? on : ['__none__']; RPT.cfg.doctors = []; buildFilterUI(); custom(true);
+  });
+  const dsel = RPT.cfg.doctors || [];
+  const shownClinics = clinics.filter(c => !RPT.cfg.clinics || !RPT.cfg.clinics.length || RPT.cfg.clinics.includes(c));
+  $('#docCks').innerHTML = shownClinics.map(cl => `<div class="cl">${esc(cl)}</div>` + recs.filter(r => r.clinic === cl).map(r => { const k = r.clinic + '|' + r.doctor; return `<label class="ck"><input type="checkbox" data-fd="${esc(k)}" ${dsel.includes(k) ? 'checked' : ''}>${esc(r.doctor)}</label>`; }).join('')).join('') || '<span class="hint">尚無資料</span>';
+  $$('[data-fd]').forEach(el => el.onchange = () => { RPT.cfg.doctors = $$('[data-fd]').filter(x => x.checked).map(x => x.dataset.fd); custom(true); });
+}
+function applyPreset(name) {
+  const keepF = RPT.cfg ? { clinics: RPT.cfg.clinics, doctors: RPT.cfg.doctors } : {};
+  if (name.startsWith('c:')) RPT.cfg = JSON.parse(JSON.stringify(LS.get('rr_custom', {})[name.slice(2)]));
+  else RPT.cfg = Object.assign(presetToCfg(PRESETS[name]), keepF);
+  RPT.preset = name; LS.set('rr_preset', name); LS.set('rr_rptcfg', RPT.cfg);
+  setView(RPT.view === 'visits' ? 'visits' : 'image', true);
+  buildCfgUI(); draw();
+}
+function setView(v, silent) {
+  RPT.view = v; LS.set('rr_view2', v);
+  $$('#viewTabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  $('#imgStyle').classList.toggle('hide', v !== 'image');
+  $('#visitNote').classList.toggle('hide', v !== 'visits');
+  $('#btnXlsx').classList.toggle('hide', v !== 'table');
+  $('#paper').classList.toggle('hide', v !== 'table');
+  if (!silent) draw();
+}
+$$('#viewTabs button').forEach(b => b.onclick = () => setView(b.dataset.v));
+$('#imgStyle').onchange = () => draw();
+$('#visitNote').addEventListener('input', () => { LS.set('rr_note_' + S.month, $('#visitNote').value); clearTimeout(RPT._nt); RPT._nt = setTimeout(draw, 400); });
+function custom(filterOnly) { if (!filterOnly && !RPT.preset.startsWith('c:')) { RPT.preset = '自訂'; $$('#presetBtns .btn').forEach(b => b.classList.remove('on')); } LS.set('rr_preset', RPT.preset); LS.set('rr_rptcfg', RPT.cfg); draw(); }
+$('#customSel').onchange = e => { if (e.target.value) applyPreset('c:' + e.target.value); };
+$('#btnSavePreset').onclick = () => { const n = prompt('版型名稱（例如：給院長、給老闆）', ''); if (!n) return; const c = LS.get('rr_custom', {}); c[n] = RPT.cfg; LS.set('rr_custom', c); RPT.preset = 'c:' + n; LS.set('rr_preset', RPT.preset); buildCfgUI(); toast('已儲存版型「' + n + '」（存在這台電腦的瀏覽器）'); };
+$('#btnDelPreset').onclick = () => { const n = $('#customSel').value; if (!n) return; const c = LS.get('rr_custom', {}); delete c[n]; LS.set('rr_custom', c); buildCfgUI(); };
+
+async function loadReport() {
+  $('#repTitle').textContent = E.monthLabel(S.month) + ' 醫師回診率分析結果';
+  $('#reportArea').innerHTML = '<div class="empty-state"><span class="spin" style="border-color:#2b5a5433;border-top-color:#2b5a54"></span> 載入中…</div>';
+  let data;
+  const warn = [];
+  if (HAS_GAS) {
+    try { data = await api('getMonth', { month: S.month }); }
+    catch (e) { toast('載入失敗：' + e.message, true); data = null; }
+  }
+  if (!data) { data = localMonthData(); warn.push('目前顯示的是本機尚未儲存的試算資料。'); }
+  const unsaved = activeClinics().filter(c => { const x = S.clinics[c.name]; return x && !x.savedAt && (x.visitFile || x.backFile); }).map(c => c.name);
+  if (HAS_GAS && unsaved.length) warn.push('以下院區已分析但尚未儲存，未列入報表：' + unsaved.join('、'));
+  $('#repWarn').innerHTML = warn.join('<br>'); $('#repWarn').classList.toggle('hide', !warn.length);
+  const ord = {}, titles = {};
+  CFG.doctors.forEach((d, i) => { ord[d.clinic + '|' + d.name] = +d.order || i + 1; titles[d.clinic + '|' + d.name] = d.title; });
+  data.records.forEach(r => { if (!r.title) r.title = titles[r.clinic + '|' + r.doctor] || '醫師'; });
+  const ad = (data.records.find(r => r.analysisDate) || {}).analysisDate || $('#analysisDate').value;
+  RPT.data = Object.assign(data, { clinicOrder: activeClinics().map(c => c.name), doctorOrder: ord, titles, analysisDate: shortDate(ad) });
+  if (!RPT.cfg) RPT.cfg = presetToCfg(PRESETS['完整版']);
+  $('#visitNote').value = LS.get('rr_note_' + S.month, '');
+  buildCfgUI(); draw(); renderKpi();
+}
+function shortDate(s) { s = String(s || '').trim(); const m = s.match(/(?:^\d{3,4}[\/\-])?(\d{1,2})[\/\-](\d{1,2})/); return m ? (+m[1]) + '/' + (+m[2]) : s; }
+function localMonthData() {
+  const records = [], clinicSum = [];
+  activeClinics().forEach(c => {
+    const x = S.clinics[c.name]; if (!x) return;
+    const rows = clinicDoctors(c.name).map(d => doctorRow(c.name, d)).filter(r => [r.hours, r.visits, r.slowN, r.backN].some(v => v !== null));
+    rows.forEach(r => records.push(Object.assign({ clinic: c.name, month: S.month }, r)));
+    const sm = clinicSummary(c.name, rows); if (sm.total !== null || sm.slow !== null) clinicSum.push({ clinic: c.name, total: sm.total, slow: sm.slow, slowRate: sm.slowRate });
+  });
+  return { month: S.month, records, prev: [], clinicSum };
+}
+function renderKpi() {
+  const d = RPT.data; if (!d) return;
+  const grand = d.clinicSum.reduce((a, c) => a + (E.numOrNull(c.total) || 0), 0);
+  const pg = (d.prevClinicSum || []).reduce((a, c) => a + (E.numOrNull(c.total) || 0), 0);
+  const clinicsDone = new Set(d.records.map(r => r.clinic)).size;
+  const avg = E.averages(d.records);
+  $('#kpi').innerHTML = `
+    <div class="card"><div class="l">全院區總人次</div><div class="v">${grand.toLocaleString()}${pg ? ` <small>上月 ${pg.toLocaleString()}（${grand - pg >= 0 ? '+' : ''}${(grand - pg).toLocaleString()}）</small>` : ''}</div></div>
+    <div class="card"><div class="l">已完成院區 / 醫師</div><div class="v">${clinicsDone}<small> / ${activeClinics().length} 院區　${d.records.length} 位醫師</small></div></div>
+    <div class="card"><div class="l">集團平均 個人回診率</div><div class="v">${E.fmt(avg.nRevRate, 'pct') || '-'}</div></div>
+    <div class="card"><div class="l">集團平均 院所回診率</div><div class="v">${E.fmt(avg.wRevRate, 'pct') || '-'}</div></div>`;
+}
+function draw() {
+  if (!RPT.data) return;
+  if (!RPT.data.records.length) { $('#reportArea').innerHTML = '<div class="empty-state">這個月份還沒有資料。請先在「資料分析」放入檔案並儲存各院區。</div>'; return; }
+  setView(RPT.view, true);
+  const cfg = fullCfg();
+  if (RPT.view !== 'visits' && (RPT.cfg.clinics || [])[0] === '__none__') { $('#reportArea').innerHTML = '<div class="empty-state">請在左側勾選要顯示的院區</div>'; return; }
+  if (RPT.view === 'image') $('#reportArea').innerHTML = '<style>' + E.PRETTY_CSS + '</style>' + E.renderPretty(RPT.data, cfg, $('#imgStyle').value);
+  else if (RPT.view === 'visits') $('#reportArea').innerHTML = '<style>' + E.VISITS_CSS + '</style>' + E.renderVisits(RPT.data, { note: $('#visitNote').value.trim(), noteLabel: '決議' });
+  else $('#reportArea').innerHTML = E.renderReport(RPT.data, cfg);
+  fitPaper();
+}
+function fullCfg() { return Object.assign({}, RPT.cfg, { threshold: THRESH(), slowExclude: SLOW_EX(), topColor: +setting('排名標色名次', 5), showLimit: +setting('排名顯示名次', 10), pctDigits: +setting('百分比小數位數', 2), days: DAYS() }); }
+function fitPaper() {
+  const land = $('#paper').value === 'landscape';
+  $('#pageStyle').textContent = `@media print{@page{size:A4 ${land ? 'landscape' : 'portrait'};margin:8mm}}`;
+  const t = $('#reportArea .pretty') || $('#reportArea .vz') || $('#reportArea table'); if (!t) return;
+  const sel = t.classList.contains('pretty') ? '#reportArea .pretty' : t.classList.contains('vz') ? '#reportArea .vz' : '#reportArea table';
+  $('#rptStyle').textContent = E.REPORT_CSS;
+  const pagePx = (land ? 297 : 210) * 3.78 - 16 * 3.78;
+  const z = Math.min(1, pagePx * 0.95 / t.scrollWidth);
+  const box = $('#reportWrap').clientWidth || 1000;
+  const zs = $('#fitScreen').checked ? Math.min(1, box / t.scrollWidth) : 1;
+  $('#rptStyle').textContent = E.REPORT_CSS + `@media screen{${sel}{zoom:${zs.toFixed(3)}}}@media print{${sel}{zoom:${z.toFixed(3)}}}`;
+}
+$('#paper').onchange = fitPaper; $('#fitScreen').onchange = fitPaper; window.addEventListener('resize', () => { if (RPT.data) fitPaper(); });
+$('#btnPrint').onclick = () => { fitPaper(); window.print(); };
+$('#btnReload').onclick = loadReport;
+function imageName() {   // 觀音_115.08；多院區用「、」連接；全部為「全院區」
+  const [y, m] = S.month.split('-');
+  let cls = RPT.cfg.clinics && RPT.cfg.clinics.length ? RPT.cfg.clinics.filter(c => c !== '__none__') : [];
+  if (RPT.cfg.doctors && RPT.cfg.doctors.length) cls = Array.from(new Set(RPT.cfg.doctors.map(k => k.split('|')[0])));
+  const name = !cls.length ? '全院區' : cls.length > 3 ? cls.slice(0, 3).join('、') + '等' + cls.length + '院區' : cls.join('、');
+  return name + '_' + (+y - 1911) + '.' + m;
+}
+async function downloadImage(type) {
+  if (!RPT.data || !RPT.data.records.length) return toast('目前沒有報表資料', true);
+  if (typeof html2canvas === 'undefined') return toast('圖片元件載入失敗，請確認網路後重新整理', true);
+  const btn = type === 'png' ? $('#btnPng') : $('#btnJpg'); busy(btn, true, '產生中');
+  const style = $('#imgStyle').value, isV = RPT.view === 'visits';
+  if (!isV && (RPT.cfg.clinics || [])[0] === '__none__') { busy(btn, false); return toast('請先勾選院區', true); }
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-20000px;top:0;z-index:-1';
+  host.innerHTML = isV ? '<style>' + E.VISITS_CSS + '</style>' + E.renderVisits(RPT.data, { note: $('#visitNote').value.trim(), noteLabel: '決議' })
+                       : '<style>' + E.PRETTY_CSS + '</style>' + E.renderPretty(RPT.data, fullCfg(), style);
+  document.body.appendChild(host);
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    await Promise.all(Array.from(host.querySelectorAll('img')).map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+    const el = host.querySelector(isV ? '.vz' : '.pretty');
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: isV ? '#ffffff' : '#f2f0eb', useCORS: true, logging: false });
+    const mime = type === 'png' ? 'image/png' : 'image/jpeg';
+    const blob = await new Promise(r => canvas.toBlob(r, mime, 0.95));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (isV ? '全院區看診總人次_' + (+S.month.split('-')[0] - 1911) + '.' + S.month.split('-')[1] : imageName()) + (type === 'png' ? '.png' : '.jpg');
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast('圖片已下載');
+  } catch (e) { toast('產生圖片失敗：' + e.message, true); }
+  host.remove(); busy(btn, false);
+}
+$('#btnPng').onclick = () => downloadImage('png');
+$('#btnJpg').onclick = () => downloadImage('jpeg');
+$('#btnXlsx').onclick = () => {
+  const t = RPT.view === 'table' && $('#reportArea table.rpt'); if (!t) return toast('請切換到「表格」檢視再下載 Excel', true);
+  const wb = XLSX.utils.table_to_book(t, { raw: true });
+  XLSX.writeFile(wb, '醫師回診率分析結果_' + E.monthLabel(S.month) + '.xlsx');
+};
+
+/* ---------- 頁籤 ---------- */
+$$('nav.tabs button').forEach(b => b.onclick = () => {
+  $$('nav.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  $('#pageAnalyze').classList.toggle('hide', b.dataset.page !== 'Analyze');
+  $('#pageReport').classList.toggle('hide', b.dataset.page !== 'Report');
+  if (b.dataset.page === 'Report') { RPT.preset = '完整版'; RPT.cfg = Object.assign(presetToCfg(PRESETS['完整版']), RPT.cfg ? { clinics: RPT.cfg.clinics, doctors: RPT.cfg.doctors } : {}); RPT.view = 'image'; LS.set('rr_preset', '完整版'); LS.set('rr_rptcfg', RPT.cfg); LS.set('rr_view2', 'image'); loadReport(); }
+});
+
+init();
 </script>
 </body>
 </html>
