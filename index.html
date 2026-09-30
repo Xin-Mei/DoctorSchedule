@@ -377,7 +377,7 @@ function repick() {
   let h = '<div class="tbl-wrap" style="max-height:300px"><table class="dt ver"><thead><tr><th>院區</th><th>採用版本</th></tr></thead><tbody>';
   PARSED.clinics.forEach(c => {
     const cur = PICK.picks[c.clinic];
-    const opts = c.blocks.map(b => '<option value="' + b.index + '"' + (b.index === cur ? ' selected' : '') + '>' + esc(b.title) + (b.dates.length ? '（' + E.md(b.dates[0]) + '週）' : '（第 ' + b.row + ' 列）') + '</option>').join('');
+    const opts = c.blocks.map(b => '<option value="' + b.index + '"' + (b.index === cur ? ' selected' : '') + '>' + esc(b.title) + (b.dates.length ? '（' + E.md(b.dates[0]) + '週）' : '（' + b.ref + '）') + '</option>').join('');
     const inf = PICK.info[c.clinic];
     h += '<tr><td><b>' + esc(c.clinic) + '</b></td><td><select data-c="' + esc(c.clinic) + '">' + opts + '</select><div class="why">' + esc(inf.why) + (inf.why.startsWith('⚠') ? '' : '・' + E.md(inf.start) + ' 起') + '</div></td></tr>';
   });

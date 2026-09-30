@@ -186,26 +186,31 @@
     return res;
   };
 
+  function colName(c) { let s = ''; c++; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; }
+
   function parseSheet(sh, clinic, month, st) {
     const g = sh.grid;
     const at = (r, c) => (g[r] && g[r][c] !== undefined ? g[r][c] : '');
+    // 標題格可能在 A 欄（上下排列），也可能並排在右邊（例：S1「大溪院區10/12開始」）
     const starts = [];
-    for (let r = 0; r < g.length; r++) {
-      const t = cellText(at(r, 0));
-      if (TITLE_RE.test(t)) starts.push(r);
+    for (let r = 0; r < g.length; r++) for (let c = 0; c < (g[r] || []).length; c++) {
+      const t = cellText(at(r, c));
+      if (t && t.length <= 40 && TITLE_RE.test(t)) starts.push({ r, c });
     }
+    const rows = Array.from(new Set(starts.map(x => x.r))).sort((a, b) => a - b);
     const blocks = [];
-    starts.forEach((r0, i) => {
-      const r1 = i + 1 < starts.length ? starts[i + 1] - 1 : g.length - 1;
-      const b = parseBlock(g, r0, r1, clinic, month, st);
+    starts.forEach(({ r: r0, c: c0 }) => {
+      const nx = rows.find(r => r > r0);
+      const r1 = nx !== undefined ? nx - 1 : g.length - 1;
+      const b = parseBlock(g, r0, r1, c0, clinic, month, st);
       if (b) { b.index = blocks.length; blocks.push(b); }
     });
     return { clinic, tab: sh.name, blocks };
   }
 
-  function parseBlock(g, r0, r1, clinic, month, st) {
+  function parseBlock(g, r0, r1, c0, clinic, month, st) {
     const at = (r, c) => (g[r] && g[r][c] !== undefined ? g[r][c] : '');
-    const title = cellText(at(r0, 0));
+    const title = cellText(at(r0, c0));
     const m = title.match(TITLE_RE);
     const kind = /異動/.test(m[5]) ? 'temp' : 'base';
     const y = nearYear(+m[1], month || '2000-' + m[1]);
@@ -214,10 +219,11 @@
     if (m[4]) { const em = m[3] ? +m[3] : +m[1]; end = iso(nearYear(em, month || '2000-' + em), em, +m[4]); }
     // 星期列
     let hr = -1;
-    for (let r = r0; r <= r1 && hr < 0; r++) for (let c = 1; c < (g[r] || []).length; c++) if (cellText(at(r, c)) === '星期一') { hr = r; break; }
+    const cMax = c0 + 18;   // 星期欄位只找標題右邊這一區
+    for (let r = r0; r <= Math.min(r1, r0 + 6) && hr < 0; r++) for (let c = c0 + 1; c <= cMax; c++) if (cellText(at(r, c)) === '星期一') { hr = r; break; }
     if (hr < 0) return null;
     const dayCol = [];
-    E.DAYS.forEach((d, i) => { for (let c = 1; c < g[hr].length; c++) if (cellText(at(hr, c)) === d || cellText(at(hr, c)) === d.replace('日', '天')) { dayCol[i] = c; break; } });
+    E.DAYS.forEach((d, i) => { for (let c = c0 + 1; c <= cMax; c++) if (cellText(at(hr, c)) === d || cellText(at(hr, c)) === d.replace('日', '天')) { dayCol[i] = c; break; } });
     if (dayCol.filter(x => x !== undefined).length < 7) return null;
     const width = dayCol[1] - dayCol[0];
     const colDay = {};
@@ -230,7 +236,7 @@
     const entries = [];
     let label = '', special = false;
     for (let r = hr + 1; r <= r1; r++) {
-      const a = cellText(at(r, 0));
+      const a = cellText(at(r, c0));
       if (a) { label = a; special = isSpecialLabel(a, st); }
       if (!label) continue;
       for (const c of cols) {
@@ -251,7 +257,7 @@
         });
       }
     }
-    return { title, kind, start, end, dates, row: r0 + 1, entries };
+    return { title, kind, start, end, dates, row: r0 + 1, col: c0, ref: colName(c0) + (r0 + 1), entries };
   }
   function push(arr, n, o) {
     const nt = readNote(n.note, o.defType);
