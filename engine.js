@@ -508,9 +508,9 @@
   // 單一門診在格子內的高度（大字直式 / 精簡橫式）
   // big＝一格一個門診；narrow＝一格兩個門診（左右直切）；sm＝三個以上（上下堆疊）
   const SPEC = {
-    big:    { lab: 20, sub: 15, alt: 20, t: 19, gap: 6, pad: 24, vertical: true, twoLine: false },
+    big:    { lab: 20, sub: 15, alt: 17, t: 19, gap: 6, pad: 24, vertical: true, twoLine: false },
     narrow: { lab: 16, sub: 13, alt: 11.5, t: 15, gap: 4, pad: 20, vertical: true, twoLine: true },
-    sm:     { lab: 16, sub: 13, alt: 16, t: 15, gap: 4, pad: 16, vertical: false, twoLine: false }
+    sm:     { lab: 16, sub: 13, alt: 13.5, t: 15, gap: 4, pad: 16, vertical: false, twoLine: false }
   };
   // 兩個以上一律上下堆疊（橫的）；若要改回左右直切，把下一行改成 n === 2 ? 'narrow' : 'sm'
   const modeOf = n => (n === 1 ? 'big' : 'sm');
