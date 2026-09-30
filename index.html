@@ -144,6 +144,7 @@ body.locked header.top,body.locked main{visibility:hidden}
     <button data-page="Make" class="on">產出班表</button>
     <button data-page="History">歷史查詢</button>
     <a href="admin.html" target="_blank">後台管理 ↗</a>
+    <a href="tutorial.html" target="_blank">操作教學 ▶</a>
   </nav>
   <div class="right">
     <span class="pill" id="connPill"><span class="dot"></span><span id="connText">連線中…</span></span>
@@ -297,7 +298,7 @@ async function logout() { try { await api('logout'); } catch (e) {} try { sessio
 
 /* ---------------- 狀態 ---------------- */
 let CFG = { clinics: [], doctors: [], settings: [] }, ST = E.settings();
-let BOOK = null, PARSED = null, PICK = null, OVERRIDE = {}, DOCS = [], PREV = null, CUR = 0, FILTER = '', VIEW = 'list';
+let ONLYCHG = false, BOOK = null, PARSED = null, PICK = null, OVERRIDE = {}, DOCS = [], PREV = null, CUR = 0, FILTER = '', VIEW = 'list';
 const setConn = (ok, t) => { $('#connPill').className = 'pill ' + (ok ? 'ok' : 'bad'); $('#connText').textContent = t; };
 
 async function boot() {
@@ -423,6 +424,7 @@ async function build() {
   DOCS.forEach(d => { if (keep[d.name]) Object.assign(d, keep[d.name], { _edited: true }); d._sel = true; });
   await loadPrev();
   CUR = 0;
+  const v0 = visible(); if (v0.length) CUR = DOCS.indexOf(v0[0]);
   $('#docEmpty').classList.add('hide'); $('#docArea').classList.remove('hide');
   renderFilter(); renderTable(); await E.fontsReady(ST.font); showPreview();
 }
@@ -438,6 +440,15 @@ async function loadPrev() {
       PREV = await api('getBatch', { id: list[0].id });
     }
   } catch (e) { console.warn(e); }
+  // 還沒儲存過前一版 → 直接用同一份門診表算出前一個版本來比對
+  if (!PREV && date > month + '-01') {
+    const prevDate = E.versionDates(PARSED).map(v => v.date).filter(d => d < date).pop() || month + '-01';
+    const pp = E.pickVersions(PARSED, prevDate, {});
+    const prevDocs = E.buildDoctors(PARSED, pp, CFG.doctors, ST, E.normRules(CFG.rules), E.normAdjust(CFG.adjust));
+    PREV = { meta: { date: prevDate, local: true }, doctors: prevDocs.map(d => ({ name: d.name, sig: E.sig(d) })) };
+  }
+  ONLYCHG = !!PREV && DOCS.some(d => { const p = PREV.doctors.find(x => x.name === d.name); return !p || p.sig !== E.sig(d); });
+  if (ONLYCHG) FILTER = '';
   compare();
 }
 function compare() {
@@ -454,7 +465,7 @@ function compare() {
   if (PREV) {
     const chg = DOCS.filter(d => d.cmp !== '相同').length;
     const gone = PREV.doctors.filter(p => !DOCS.some(d => d.name === p.name)).map(p => p.name);
-    warn.push('<div class="' + (chg ? 'warnbox' : 'okbox') + ' mb">已與 <b>' + E.md(PREV.meta.date) + ' 起</b> 的產出比對：' + (chg ? '<b>' + chg + '</b> 位醫師有異動或新增，已自動勾選，只需提供這些醫師的新班表。' : '所有醫師班表都沒有變動，這次不用另外提供。') + (gone.length ? '<br>前版有、這次沒有的醫師：' + gone.map(esc).join('、') : '') + '</div>');
+    warn.push('<div class="' + (chg ? 'warnbox' : 'okbox') + ' mb">已與 <b>' + E.md(PREV.meta.date) + ' 起</b> 的' + (PREV.meta.local ? '班表' : '產出') + '比對：' + (chg ? '<b>' + chg + '</b> 位醫師有異動或新增，已自動勾選並優先列出（下方「只看異動」），直接按「下載勾選」即可。' : '所有醫師班表都沒有變動，這次不用另外提供。') + (gone.length ? '<br>前版有、這次沒有的醫師：' + gone.map(esc).join('、') : '') + '</div>');
   }
   const edited = DOCS.filter(d => d._edited);
   if (edited.length) warn.push('<div class="info mb"><span>✎</span><span>已在這次產出中調整 ' + edited.length + ' 位醫師的職稱／專任院區。' + (WHO && WHO.role === 'admin' ? '<button class="btn sm" id="btnSaveMeta" style="margin-left:6px">寫回後台醫師清單</button>' : '（前台帳號只套用在這次產出；要永久修改請到後台管理）') + '</span></div>');
@@ -480,12 +491,19 @@ async function saveMeta() {
 
 function visible() {
   const q = $('#q').value.trim();
-  return DOCS.filter(d => (!q || d.name.indexOf(q) >= 0) && (!FILTER || d.home === FILTER));
+  const l = DOCS.filter(d => (!q || d.name.indexOf(q) >= 0) && (!FILTER || d.home === FILTER) && (!ONLYCHG || (d.cmp && d.cmp !== '相同')));
+  // 有前版可比對時，有異動／新增的醫師排在最前面
+  return PREV ? l.filter(d => d.cmp !== '相同').concat(l.filter(d => d.cmp === '相同')) : l;
 }
 function renderFilter() {
   const cl = PARSED.clinics.map(c => c.clinic);
-  $('#clinicFilter').innerHTML = ['全部'].concat(cl).map(c => '<button class="chip' + ((c === '全部' ? '' : c) === FILTER ? ' on' : '') + '" data-c="' + (c === '全部' ? '' : esc(c)) + '">' + esc(c) + '<small>' + (c === '全部' ? DOCS.length : DOCS.filter(d => d.home === c).length) + '</small></button>').join('');
-  $$('#clinicFilter .chip').forEach(b => b.addEventListener('click', () => { FILTER = b.dataset.c; renderFilter(); const v = visible(); if (v.length && v.indexOf(DOCS[CUR]) < 0) CUR = DOCS.indexOf(v[0]); renderTable(); showPreview(); if (VIEW === 'gallery') renderGallery(); }));
+  $('#clinicFilter').innerHTML = ['全部'].concat(cl).map(c => '<button class="chip' + (!ONLYCHG && (c === '全部' ? '' : c) === FILTER ? ' on' : '') + '" data-c="' + (c === '全部' ? '' : esc(c)) + '">' + esc(c) + '<small>' + (c === '全部' ? DOCS.length : DOCS.filter(d => d.home === c).length) + '</small></button>').join('');
+  if (PREV) {
+    const n = DOCS.filter(d => d.cmp && d.cmp !== '相同').length;
+    $('#clinicFilter').insertAdjacentHTML('afterbegin', '<button class="chip' + (ONLYCHG ? ' on' : '') + '" id="chipChg" style="' + (ONLYCHG ? 'background:#b7791f;border-color:#b7791f' : 'border-color:#e8cf8f;color:#7a5412') + '">只看異動<small>' + n + '</small></button>');
+    $('#chipChg').addEventListener('click', () => { ONLYCHG = !ONLYCHG; renderFilter(); const v = visible(); if (v.length && v.indexOf(DOCS[CUR]) < 0) CUR = DOCS.indexOf(v[0]); renderTable(); showPreview(); if (VIEW === 'gallery') renderGallery(); });
+  }
+  $$('#clinicFilter .chip:not(#chipChg)').forEach(b => b.addEventListener('click', () => { ONLYCHG = false; FILTER = b.dataset.c; renderFilter(); const v = visible(); if (v.length && v.indexOf(DOCS[CUR]) < 0) CUR = DOCS.indexOf(v[0]); renderTable(); showPreview(); if (VIEW === 'gallery') renderGallery(); }));
 }
 const cmpTag = c => c === '異動' ? '<span class="tag y">異動</span>' : c === '新增' ? '<span class="tag b">新增</span>' : c === '相同' ? '<span class="tag n">相同</span>' : c === '首版' ? '<span class="tag g">首版</span>' : '<span class="hint">—</span>';
 function renderTable() {
