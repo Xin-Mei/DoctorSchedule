@@ -39,7 +39,7 @@ main{max-width:1280px;margin:0 auto;padding:clamp(12px,3vw,28px) clamp(12px,3vw,
   <div class="note">點上方章節可直接跳到該段。手機橫放會自動全螢幕顯示；也可按播放器右下角「全螢幕」。</div>
 </main>
 <script>
-const CH = [[0, "片頭"], [4.7, "登入"], [13.1, "讀取門診表"], [27.0, "版本與生效日"], [37.9, "個人班表預覽"], [77.2, "下載與儲存"], [89.1, "月中異動"], [115.1, "歷史查詢"], [133.3, "後台管理"]];
+const CH = [[0, "片頭"], [5.3, "登入"], [12.7, "讀取門診表"], [27.1, "版本與生效日"], [38.0, "個人班表預覽"], [76.7, "下載與儲存"], [88.5, "月中異動"], [114.0, "歷史查詢"], [130.7, "後台管理"]];
 const v = document.getElementById('v'), box = document.getElementById('chap');
 CH.forEach((c, i) => { const b = document.createElement('button'); b.innerHTML = '<b>' + (i + 1) + '</b>' + c[1]; b.onclick = () => { v.currentTime = c[0]; v.play(); }; box.appendChild(b); });
 v.addEventListener('timeupdate', () => { let k = 0; CH.forEach((c, i) => { if (v.currentTime >= c[0] - 0.3) k = i; }); [...box.children].forEach((b, i) => b.classList.toggle('on', i === k)); });
