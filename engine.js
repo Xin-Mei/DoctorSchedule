@@ -454,13 +454,20 @@
     return s;
   }
   // 單一門診在格子內的高度（大字直式 / 精簡橫式）
-  const BIG = { lab: 20, alt: 14, t: 22, gap: 6 };
-  const SM = { lab: 16, alt: 12.5, t: 16, gap: 4 };
-  function entryH(e, big) {
-    const f = big ? BIG : SM;
-    let h = f.lab + (e.alt ? f.alt + 3 : 0) + f.gap;
-    h += big ? f.t * 2 + 16 + f.gap * 2 : f.t + 2;
-    return h + (big ? 24 : 16);
+  // big＝一格一個門診；narrow＝一格兩個門診（左右直切）；sm＝三個以上（上下堆疊）
+  const SPEC = {
+    big:    { lab: 20, sub: 15, alt: 14, t: 19, gap: 6, pad: 24, vertical: true, twoLine: false },
+    narrow: { lab: 16, sub: 13, alt: 11.5, t: 15, gap: 4, pad: 20, vertical: true, twoLine: true },
+    sm:     { lab: 16, sub: 13, alt: 12.5, t: 15, gap: 4, pad: 16, vertical: false, twoLine: false }
+  };
+  // 兩個以上一律上下堆疊（橫的）；若要改回左右直切，把下一行改成 n === 2 ? 'narrow' : 'sm'
+  const modeOf = n => (n === 1 ? 'big' : 'sm');
+  const hasType = e => e.type && e.type !== '健保';
+  function entryH(e, mode) {
+    const f = SPEC[mode];
+    let h = f.lab + (f.twoLine && hasType(e) ? f.sub + 3 : 0) + (e.alt ? f.alt + 3 : 0) + f.gap;
+    h += f.vertical ? f.t * 2 + 14 + f.gap * 2 : f.t + 2;
+    return h + f.pad;
   }
 
   /**
@@ -482,8 +489,8 @@
       let h = 124;
       row.forEach(list => {
         if (!list.length) return;
-        const big = list.length === 1;
-        const need = list.reduce((a, e) => a + entryH(e, big), 0) + (list.length - 1) * 6;
+        const mode = modeOf(list.length);
+        const need = mode === 'narrow' ? Math.max(...list.map(e => entryH(e, mode))) : list.reduce((a, e) => a + entryH(e, mode), 0) + (list.length - 1) * 6;
         h = Math.max(h, need);
       });
       return Math.ceil(h);
@@ -562,18 +569,22 @@
       row.forEach((list, di) => {
         const cx = P + LW + GAP + di * (colW + GAP);
         if (!list.length) { ctx.fillStyle = C.empty; rr(ctx, cx, y, colW, h, 12); ctx.fill(); return; }
-        const big = list.length === 1;
-        const need = list.map(e => entryH(e, big));
-        const extra = (h - need.reduce((a, b) => a + b, 0) - (list.length - 1) * 6) / list.length;
-        let ey = y;
-        list.forEach((e, k) => {
-          const eh = need[k] + extra;
+        const mode = modeOf(list.length);
+        const box = (e, bx, by, bw, bh) => {
           const home = e.clinic === doc.home;
-          ctx.fillStyle = home ? C.homeBg : C.othBg; rr(ctx, cx, ey, colW, eh, 12); ctx.fill();
-          ctx.strokeStyle = home ? C.homeBd : C.othBd; ctx.lineWidth = home ? 2 : 1.5; rr(ctx, cx + .8, ey + .8, colW - 1.6, eh - 1.6, 11.5); ctx.stroke();
-          drawEntry(ctx, e, cx, ey, colW, eh, big, home ? C.homeInk : C.othInk);
-          ey += eh + 6;
-        });
+          ctx.fillStyle = home ? C.homeBg : C.othBg; rr(ctx, bx, by, bw, bh, 12); ctx.fill();
+          ctx.strokeStyle = home ? C.homeBd : C.othBd; ctx.lineWidth = home ? 2 : 1.5; rr(ctx, bx + .8, by + .8, bw - 1.6, bh - 1.6, 11.5); ctx.stroke();
+          drawEntry(ctx, e, bx, by, bw, bh, mode, home ? C.homeInk : C.othInk);
+        };
+        if (mode === 'narrow') {           // 兩個門診：左右直切
+          const sw = (colW - 5) / 2;
+          list.forEach((e, k) => box(e, cx + k * (sw + 5), y, sw, h));
+        } else {                           // 一個滿格／三個以上上下堆疊
+          const need = list.map(e => entryH(e, mode));
+          const extra = (h - need.reduce((a, b) => a + b, 0) - (list.length - 1) * 6) / list.length;
+          let ey = y;
+          list.forEach((e, k) => { const eh = need[k] + extra; box(e, cx, ey, colW, eh); ey += eh + 6; });
+        }
       });
       ctx.textAlign = 'left';
       y += h + GAP;
@@ -585,31 +596,32 @@
     ctx.textAlign = 'left';
     return cv;
   };
-  function drawEntry(ctx, e, x, y, w, h, big, ink) {
-    const f = big ? BIG : SM;
-    const inner = w - 12;
-    const lab = E.label(e);
-    const content = entryH(e, big) - (big ? 24 : 16);
+  function drawEntry(ctx, e, x, y, w, h, mode, ink) {
+    const f = SPEC[mode];
+    const inner = w - (mode === 'narrow' ? 6 : 12);
+    const two = f.twoLine && hasType(e);
+    const lab = two ? e.clinic : E.label(e);
+    const content = entryH(e, mode) - f.pad;
     let cy = y + (h - content) / 2;
+    const cxm = x + w / 2;
     ctx.textAlign = 'center'; ctx.fillStyle = ink;
-    const ls = fitText(ctx, lab, inner, f.lab, 700, LABEL_FONT);   // 格子內的院區＋時間固定用思源黑體；其餘（姓名、標題、圖例）用班表字體
-    cy += ls; ctx.fillText(lab, x + w / 2, cy);
-    if (e.alt) {
-      fitText(ctx, E.altLabel(e), inner, f.alt, 700, LABEL_FONT);
-      cy += f.alt + 3; ctx.fillText(E.altLabel(e), x + w / 2, cy);
-    }
+    // 格子內的院區＋時間固定用思源黑體；其餘（姓名、標題、圖例）用班表字體
+    cy += fitText(ctx, lab, inner, f.lab, 700, LABEL_FONT); ctx.fillText(lab, cxm, cy);
+    if (two) { fitText(ctx, e.type, inner, f.sub, 700, LABEL_FONT); cy += f.sub + 3; ctx.fillText(e.type, cxm, cy); }
+    if (e.alt) { fitText(ctx, E.altLabel(e), inner, f.alt, 700, LABEL_FONT); cy += f.alt + 3; ctx.fillText(E.altLabel(e), cxm, cy); }
     cy += f.gap;
-    if (big) {
-      ctx.font = '700 ' + f.t + 'px ' + LABEL_FONT;
-      cy += f.t; ctx.fillText(E.fmt(e.s), x + w / 2, cy);
-      ctx.fillRect(x + w / 2 - 1, cy + 5, 2, 10);
-      cy += 16 + f.gap + f.t; ctx.fillText(E.fmt(e.e), x + w / 2, cy);
+    if (f.vertical) {
+      fitText(ctx, '00:00', inner, f.t, 700, LABEL_FONT);
+      cy += f.t; ctx.fillText(E.fmt(e.s), cxm, cy);
+      ctx.fillRect(cxm - 1, cy + 4, 2, 9);
+      cy += 14 + f.gap + f.t; ctx.fillText(E.fmt(e.e), cxm, cy);
     } else {
       fitText(ctx, E.fmt(e.s) + '–' + E.fmt(e.e), inner, f.t, 700, LABEL_FONT);
-      cy += f.t; ctx.fillText(E.fmt(e.s) + '–' + E.fmt(e.e), x + w / 2, cy);
+      cy += f.t; ctx.fillText(E.fmt(e.s) + '–' + E.fmt(e.e), cxm, cy);
     }
     ctx.textAlign = 'left';
   }
+
 
   E.toBlob = cv => new Promise(res => cv.toBlob(res, 'image/png'));
   E.fileName = doc => doc.name + '.png';
