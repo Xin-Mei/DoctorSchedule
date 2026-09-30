@@ -514,6 +514,8 @@
   // 單一門診在格子內的高度（大字直式 / 精簡橫式）
   // big＝一格一個門診；narrow＝一格兩個門診（左右直切）；sm＝三個以上（上下堆疊）
   const SPEC = {
+    // hero＝一格只有一個「一般健保門診」（沒有減重／超音波／隔週休）→ 院區與時間放大
+    hero:   { lab: 23, sub: 15, alt: 17, t: 22, gap: 6, pad: 12, vertical: true, twoLine: false },
     big:    { lab: 20, sub: 15, alt: 17, t: 19, gap: 6, pad: 24, vertical: true, twoLine: false },
     narrow: { lab: 16, sub: 13, alt: 11.5, t: 15, gap: 4, pad: 20, vertical: true, twoLine: true },
     sm:     { lab: 16, sub: 13, alt: 13.5, t: 15, gap: 4, pad: 16, vertical: false, twoLine: false }
@@ -521,8 +523,13 @@
   // 兩個以上一律上下堆疊（橫的）；若要改回左右直切，把下一行改成 n === 2 ? 'narrow' : 'sm'
   const modeOf = n => (n === 1 ? 'big' : 'sm');
   const hasType = e => e.type && e.type !== '健保';
+  // 格子內容太多時的縮放比例（列高固定，文字自動縮小，所有醫師圖卡大小一致）
+  let FK = 1;
+  const specOf = mode => { const b = SPEC[mode]; if (FK === 1) return b; const o = Object.assign({}, b); ['lab', 'sub', 'alt', 't', 'gap', 'pad'].forEach(k => o[k] = b[k] * FK); return o; };
+  const isPlain = e => (!e.type || e.type === '健保') && !e.alt;
   function entryH(e, mode) {
-    const f = SPEC[mode];
+    if (mode === 'big' && isPlain(e)) mode = 'hero';
+    const f = specOf(mode);
     let h = f.lab + (f.twoLine && hasType(e) ? f.sub + 3 : 0) + (e.alt ? f.alt + 3 : 0) + f.gap;
     h += f.vertical ? f.t * 2 + 14 + f.gap * 2 : f.t + 2;
     return h + f.pad;
@@ -543,16 +550,10 @@
     const colW = (W - P * 2 - LW - GAP * 7) / 7;
     const cells = E.cells(doc);
     // 列高
-    const rowH = cells.map(row => {
-      let h = 146;   // 固定最小列高：一格含「(隔週休)」也放得下，所有醫師圖卡大小一致
-      row.forEach(list => {
-        if (!list.length) return;
-        const mode = modeOf(list.length);
-        const need = mode === 'narrow' ? Math.max(...list.map(e => entryH(e, mode))) : list.reduce((a, e) => a + entryH(e, mode), 0) + (list.length - 1) * 6;
-        h = Math.max(h, need);
-      });
-      return Math.ceil(h);
-    });
+    // 列高固定：所有醫師的圖卡大小完全一致；內容較多的格子改由文字自動縮小
+    const ROW_H = 128;
+    const rowH = cells.map(() => ROW_H);
+    const cellNeed = (list, mode) => mode === 'narrow' ? Math.max(...list.map(e => entryH(e, mode))) : list.reduce((a, e) => a + entryH(e, mode), 0) + (list.length - 1) * 6;
     const headY = 150, headH = 46;
     const gridY = headY + headH + 10;
     const gridH = rowH.reduce((a, b) => a + b, 0) + GAP * 2;
@@ -628,6 +629,9 @@
         const cx = P + LW + GAP + di * (colW + GAP);
         if (!list.length) { ctx.fillStyle = C.empty; rr(ctx, cx, y, colW, h, 12); ctx.fill(); return; }
         const mode = modeOf(list.length);
+        FK = 1;
+        const need0 = cellNeed(list, mode);
+        if (need0 > h) FK = Math.max(.55, (h - 2) / need0);
         const box = (e, bx, by, bw, bh) => {
           const home = e.clinic === doc.home;
           ctx.fillStyle = home ? C.homeBg : C.othBg; rr(ctx, bx, by, bw, bh, 12); ctx.fill();
@@ -643,6 +647,7 @@
           let ey = y;
           list.forEach((e, k) => { const eh = need[k] + extra; box(e, cx, ey, colW, eh); ey += eh + 6; });
         }
+        FK = 1;
       });
       ctx.textAlign = 'left';
       y += h + GAP;
@@ -655,7 +660,8 @@
     return cv;
   };
   function drawEntry(ctx, e, x, y, w, h, mode, ink) {
-    const f = SPEC[mode];
+    if (mode === 'big' && isPlain(e)) mode = 'hero';
+    const f = specOf(mode);
     const inner = w - (mode === 'narrow' ? 6 : 12);
     const two = f.twoLine && hasType(e);
     const lab = two ? e.clinic : E.label(e);
