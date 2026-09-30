@@ -155,9 +155,15 @@
     if (/晚|夜/.test(label)) return '晚';
     return '';
   }
+  /** 設定值可能是「12:00」「12:00:00」或 Google Sheet 的「1899-12-30 12:00」→ 取出時間；讀不到就用預設 */
+  function timeSetting(v, def) {
+    const m = String(v === undefined || v === null ? '' : v).match(/(\d{1,2})[:：](\d{2})(?![\d])/g);
+    const t = m ? hm(m[m.length - 1]) : null;
+    return t === null ? hm(def) : t;
+  }
   function sessByTime(min, st) {
-    if (min >= hm(st.nightStart)) return '晚';
-    if (min >= hm(st.noonStart)) return '午';
+    if (min >= timeSetting(st.nightStart, '17:00')) return '晚';
+    if (min >= timeSetting(st.noonStart, '12:00')) return '午';
     return '早';
   }
 
