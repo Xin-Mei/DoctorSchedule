@@ -24,7 +24,7 @@
     homeLabel: '專任院區',
     otherLabel: '非專任院區',
     footer: 'Elite Clinic',
-    watermark: 0.07,
+    watermark: 0.06,
     showLegend: 'Y'
   };
   E.settings = function (rows) {
@@ -307,8 +307,36 @@
    * @param meta 後台醫師清單 [{name, title, home, on, order}]
    * @return [{name, title, home, homeAuto, isNew, entries, cells[sess][day]=[entry…], clinics:[…]}]
    */
-  E.buildDoctors = function (parsed, picks, meta, st) {
+  /* ------------------------- 拆班規則 ------------------------- */
+  /** 後台「拆班規則」列 → [{doctor, clinic, day(-1=每天), bs, be}] */
+  E.normRules = function (rows) {
+    return (rows || []).filter(r => r && r.doctor && r.on !== false).map(r => {
+      const dt = String(r.day || '').trim();
+      let day = -1;
+      if (dt && !/每|全/.test(dt)) { const ch = dt.slice(-1); day = '一二三四五六日'.indexOf(ch === '天' ? '日' : ch); }
+      return { doctor: String(r.doctor).trim(), clinic: String(r.clinic || '').trim(), day, bs: hm(cellText(r.bs)), be: hm(cellText(r.be)) };
+    }).filter(r => r.bs !== null && r.be !== null && r.be > r.bs && r.day >= -1);
+  };
+  /** 把門診時段扣掉休息時段（例：14:30-21:30 扣 18:30-19:00 → 14:30-18:30、19:00-21:30） */
+  function applyBreaks(list, rules, st) {
+    if (!rules.length) return list;
+    let out = list;
+    rules.forEach(r => {
+      const next = [];
+      out.forEach(e => {
+        const hit = (!r.clinic || r.clinic === e.clinic) && (r.day < 0 || r.day === e.day) && e.s < r.be && e.e > r.bs;
+        if (!hit) { next.push(e); return; }
+        if (e.s < r.bs) next.push(Object.assign({}, e, { e: r.bs, sess: sessByTime(e.s, st), split: true }));
+        if (e.e > r.be) next.push(Object.assign({}, e, { s: r.be, sess: sessByTime(r.be, st), split: true }));
+      });
+      out = next;
+    });
+    return out;
+  }
+
+  E.buildDoctors = function (parsed, picks, meta, st, rules) {
     st = st || E.settings();
+    rules = rules || [];
     const metaMap = {};
     (meta || []).forEach(m => { if (m.name) metaMap[m.name] = m; });
     const all = [];
@@ -319,6 +347,7 @@
     Object.keys(byDoc).forEach(name => {
       const m = metaMap[name];
       if (m && m.on === false) return;
+      byDoc[name] = applyBreaks(byDoc[name], rules.filter(r => r.doctor === name), st);
       // 去重
       const map = {};
       byDoc[name].forEach(e => {
@@ -373,9 +402,9 @@
 
   /* ------------------------- 圖卡繪製 ------------------------- */
   const C = {
-    bg: '#f5f8f7', ink: '#1f3a35', ink2: '#2b5a54', muted: '#7d8a86', head: '#3d6158', headInk: '#ffffff',
-    empty: '#e8eeec', homeBg: '#e1f1ed', homeBd: '#4d8d80', homeInk: '#1f3d38',
-    othBg: '#efebe1', othBd: '#d8cfba', othInk: '#6b604c', blob: '#b8cbc5', bar: '#3a7d70'
+    bg: '#ffffff', ink: '#16302b', ink2: '#24514a', muted: '#5f6b68', head: '#2f5a50', headInk: '#ffffff',
+    empty: '#eceff0', homeBg: '#d9efe8', homeBd: '#2f7a6b', homeInk: '#12302a', rowInk: '#4d5a57',
+    othBg: '#f2e9d5', othBd: '#c4b184', othInk: '#4f4228', bar: '#2f7a6b'
   };
   E.COLORS = C;
   const FONT = '"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif';
@@ -425,7 +454,7 @@
     o = o || {};
     const st = o.settings || E.settings();
     const scale = o.scale || 2;
-    const W = 1000, P = 40, LW = 40, GAP = 8;
+    const W = 1000, P = 40, LW = 54, GAP = 8;
     const colW = (W - P * 2 - LW - GAP * 7) / 7;
     const cells = E.cells(doc);
     // 列高
@@ -442,7 +471,7 @@
     const headY = 150, headH = 46;
     const gridY = headY + headH + 10;
     const gridH = rowH.reduce((a, b) => a + b, 0) + GAP * 2;
-    const H = gridY + gridH + 96;
+    const H = gridY + gridH + 62;
     const cv = document.createElement('canvas');
     cv.width = W * scale; cv.height = H * scale;
     const ctx = cv.getContext('2d');
@@ -450,10 +479,6 @@
     ctx.textBaseline = 'alphabetic';
     // 背景
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = C.blob; ctx.globalAlpha = .55;
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(150, 0); ctx.bezierCurveTo(120, 40, 70, 30, 40, 70); ctx.bezierCurveTo(20, 95, 15, 120, 0, 140); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(W, H); ctx.lineTo(W - 170, H); ctx.bezierCurveTo(W - 130, H - 40, W - 80, H - 30, W - 45, H - 70); ctx.bezierCurveTo(W - 20, H - 100, W - 12, H - 125, W, H - 150); ctx.closePath(); ctx.fill();
-    ctx.globalAlpha = 1;
     // 浮水印
     if (logoImg && st.watermark > 0) {
       const sz = Math.min(gridH * .92, 520);
@@ -507,8 +532,8 @@
     let y = gridY;
     cells.forEach((row, si) => {
       const h = rowH[si];
-      ctx.fillStyle = '#6b7a76'; ctx.font = '700 20px ' + FONT; ctx.textAlign = 'center';
-      ctx.fillText(E.SESS[si], P + LW / 2, y + h / 2 + 7);
+      ctx.fillStyle = C.rowInk; ctx.font = '700 18px ' + FONT; ctx.textAlign = 'center';
+      ctx.fillText(E.SESS[si] + '診', P + LW / 2 - 2, y + h / 2 + 6);
       row.forEach((list, di) => {
         const cx = P + LW + GAP + di * (colW + GAP);
         if (!list.length) { ctx.fillStyle = C.empty; rr(ctx, cx, y, colW, h, 12); ctx.fill(); return; }
@@ -520,7 +545,7 @@
           const eh = need[k] + extra;
           const home = e.clinic === doc.home;
           ctx.fillStyle = home ? C.homeBg : C.othBg; rr(ctx, cx, ey, colW, eh, 12); ctx.fill();
-          ctx.strokeStyle = home ? C.homeBd : C.othBd; ctx.lineWidth = home ? 1.6 : 1.2; rr(ctx, cx + .8, ey + .8, colW - 1.6, eh - 1.6, 11.5); ctx.stroke();
+          ctx.strokeStyle = home ? C.homeBd : C.othBd; ctx.lineWidth = home ? 2 : 1.5; rr(ctx, cx + .8, ey + .8, colW - 1.6, eh - 1.6, 11.5); ctx.stroke();
           drawEntry(ctx, e, cx, ey, colW, eh, big, home ? C.homeInk : C.othInk);
           ey += eh + 6;
         });
@@ -530,8 +555,8 @@
     });
     // 頁尾
     ctx.textAlign = 'center';
-    ctx.fillStyle = C.ink2; ctx.font = '400 42px ' + SCRIPT;
-    ctx.fillText(st.footer || 'Elite Clinic', W / 2, H - 34);
+    ctx.fillStyle = C.ink2; ctx.font = '400 30px ' + SCRIPT;
+    ctx.fillText(st.footer || 'Elite Clinic', W / 2, H - 20);
     ctx.textAlign = 'left';
     return cv;
   };

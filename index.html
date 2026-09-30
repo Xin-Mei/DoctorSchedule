@@ -195,7 +195,7 @@ body.locked header.top,body.locked main{visibility:hidden}
         <div id="clinicFilter" class="chips"></div>
         <div class="grow"></div>
         <button class="btn sm" id="btnView">▦ 全部預覽</button>
-        <button class="btn sm" id="btnDlSel">⬇ 下載勾選（<span id="selN">0</span>）</button>
+        <button class="btn sm" id="btnDlSel" title="只勾部分醫師 → 逐張下載 PNG；全部勾選 → 下載 ZIP">⬇ 下載勾選（<span id="selN">0</span>）</button>
         <button class="btn sm" id="btnDlAll">⬇ 全部下載 ZIP</button>
         <button class="btn sm pri" id="btnSave">⇪ 儲存本次產出到後台</button>
       </div>
@@ -393,7 +393,7 @@ function repick() {
 async function build() {
   const keep = {};
   DOCS.forEach(d => { if (d._edited) keep[d.name] = { title: d.title, home: d.home }; });
-  DOCS = E.buildDoctors(PARSED, PICK, CFG.doctors, ST);
+  DOCS = E.buildDoctors(PARSED, PICK, CFG.doctors, ST, E.normRules(CFG.rules));
   DOCS.forEach(d => { if (keep[d.name]) Object.assign(d, keep[d.name], { _edited: true }); d._sel = true; });
   await loadPrev();
   CUR = 0;
@@ -496,7 +496,7 @@ function showPreview() {
   const pv = $('#pvCanvas'); pv.width = cv.width; pv.height = cv.height; pv.getContext('2d').drawImage(cv, 0, 0);
   $('#pvName').textContent = d.name + ' ' + d.title;
   const sp = d.entries.filter(e => e.type !== '健保').length, alt = d.entries.filter(e => e.alt).length;
-  $('#pvNote').textContent = '專任院區：' + d.home + (d.homeAuto ? '（後台未設定，暫以診次最多院區帶入）' : '') + '・共 ' + d.entries.length + ' 個診' + (sp ? '，其中特別門診 ' + sp : '') + (alt ? '，隔週休 ' + alt : '');
+  $('#pvNote').textContent = '專任院區：' + d.home + (d.homeAuto ? '（後台未設定，暫以診次最多院區帶入）' : '') + '・共 ' + d.entries.length + ' 個診' + (sp ? '，其中特別門診 ' + sp : '') + (alt ? '，隔週休 ' + alt : '') + (E.normRules(CFG.rules).some(r => r.doctor === d.name) ? '・已套用拆班規則' : '');
 }
 function step(k) { const v = visible(); if (!v.length) return; let i = v.indexOf(DOCS[CUR]); i = (i + k + v.length) % v.length; CUR = DOCS.indexOf(v[i]); renderTable(); showPreview(); const tr = $('#docTable tr.sel'); if (tr) tr.scrollIntoView({ block: 'nearest' }); }
 $('#pvPrev').addEventListener('click', () => step(-1)); $('#pvNext').addEventListener('click', () => step(1));
@@ -533,7 +533,14 @@ async function dlZip(list, o, name) {
 }
 const zipName = (m, d) => E.rocMonth(m) + ' 醫師門診表' + (+d.slice(8) !== 1 ? '（' + E.md(d).replace('/', '-') + '起）' : '') + '.zip';
 $('#btnDlAll').addEventListener('click', () => dlZip(DOCS, opts(), zipName($('#month').value, $('#effDate').value)));
-$('#btnDlSel').addEventListener('click', () => { const l = DOCS.filter(d => d._sel); if (l.length === 1) return dlOne(l[0], opts()); dlZip(l, opts(), zipName($('#month').value, $('#effDate').value)); });
+/** 下載勾選：全部醫師都勾 → ZIP；只勾部分 → 逐張 PNG */
+$('#btnDlSel').addEventListener('click', async () => {
+  const l = DOCS.filter(d => d._sel);
+  if (!l.length) return toast('請先勾選醫師', true);
+  if (l.length === DOCS.length) return dlZip(l, opts(), zipName($('#month').value, $('#effDate').value));
+  if (l.length > 3) toast('將下載 ' + l.length + ' 張 PNG；若瀏覽器詢問「是否允許下載多個檔案」，請按允許');
+  for (const d of l) { await dlOne(d, opts()); await new Promise(r => setTimeout(r, 450)); }
+});
 
 /* ---------------- 儲存 ---------------- */
 $('#btnSave').addEventListener('click', async () => {

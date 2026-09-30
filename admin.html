@@ -95,6 +95,7 @@ body.locked header.top,body.locked main{visibility:hidden}
   <nav class="tabs">
     <button data-p="doctors" class="on">醫師清單</button>
     <button data-p="clinics">院區清單</button>
+    <button data-p="rules">拆班規則</button>
     <button data-p="settings">系統設定</button>
     <button data-p="batches">產出紀錄</button>
     <button data-p="account">帳號密碼</button>
@@ -130,6 +131,16 @@ body.locked header.top,body.locked main{visibility:hidden}
     <div class="bar"><p class="step">院區清單</p><div class="grow"></div><button class="btn sm" id="cAdd">＋ 新增院區</button><button class="btn sm pri" id="cSave">儲存到後台</button></div>
     <div class="info">「班表分頁名稱」要和集團門診表的分頁名稱一致（例如分頁叫「鶯歌」）。新院區開幕：新增一列即可；停止營運：取消啟用。</div>
     <div class="tbl-wrap"><table class="dt" id="cTable"><thead><tr><th>排序</th><th>院區</th><th>班表分頁名稱</th><th>啟用</th><th>備註</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<!-- 拆班規則 -->
+<section id="p-rules" class="hide">
+  <div class="card">
+    <div class="bar"><p class="step">拆班規則 ˙ 中間休息的門診</p><div class="grow"></div><button class="btn sm" id="rAdd">＋ 新增規則</button><button class="btn sm pri" id="rSave">儲存到後台</button></div>
+    <div class="info">門診表只寫一整段、但醫師中間有休息時，在這裡設定休息時段，產出的班表就會拆成兩段。<br>例：何金蔚 星期日 土城 門診表 14:30-21:30、休息 18:30-19:00 → 班表顯示 <b>午診 14:30-18:30</b>、<b>晚診 19:00-21:30</b>。<br>院區留空＝該醫師所有院區；星期選「每天」＝每一天都套用。拆開後的兩段會依開始時間自動歸入早診／午診／晚診。</div>
+    <div class="tbl-wrap"><table class="dt" id="rTable"><thead><tr><th>醫師姓名</th><th>院區</th><th>星期</th><th>休息開始</th><th>休息結束</th><th>啟用</th><th>備註</th><th></th></tr></thead><tbody></tbody></table></div>
+    <datalist id="docList"></datalist>
   </div>
 </section>
 
@@ -223,16 +234,16 @@ async function boot() {
   $('#whoName').textContent = WHO ? WHO.user : '';
   resetIdle();
   try { CFG = await api('getConfig'); } catch (e) { return toast(e.message, true); }
-  DROWS = CFG.doctors.map(d => ({ ...d })); CROWS = CFG.clinics.map(c => ({ ...c }));
-  renderDoctors(); renderClinics(); renderSettings();
+  DROWS = CFG.doctors.map(d => ({ ...d })); CROWS = CFG.clinics.map(c => ({ ...c })); RROWS = (CFG.rules || []).map(r => ({ ...r }));
+  renderDoctors(); renderClinics(); renderSettings(); renderRules();
 }
 $$('nav.tabs button').forEach(b => b.addEventListener('click', () => {
   $$('nav.tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['doctors', 'clinics', 'settings', 'batches', 'account', 'log'].forEach(p => $('#p-' + p).classList.toggle('hide', p !== b.dataset.p));
+  ['doctors', 'clinics', 'rules', 'settings', 'batches', 'account', 'log'].forEach(p => $('#p-' + p).classList.toggle('hide', p !== b.dataset.p));
   if (b.dataset.p === 'batches') loadBatches();
   if (b.dataset.p === 'log') loadLog();
 }));
-window.addEventListener('beforeunload', e => { if (DIRTY.d || DIRTY.c) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (DIRTY.d || DIRTY.c || DIRTY.r) { e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- 醫師清單 ---------- */
 function clinicNames() { return CROWS.filter(c => c.on !== false).map(c => c.clinic); }
@@ -291,6 +302,40 @@ $('#cSave').addEventListener('click', async () => {
   busy($('#cSave'), true, '儲存中…');
   try { await api('saveList', { key: 'clinics', rows }); DIRTY.c = false; toast('院區清單已儲存'); renderDoctors(); }
   catch (e) { toast(e.message, true); } finally { busy($('#cSave'), false); }
+});
+
+/* ---------- 拆班規則 ---------- */
+let RROWS = [];
+const DAYOPT = ['每天', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+function renderRules() {
+  $('#docList').innerHTML = DROWS.map(d => '<option>' + esc(d.name) + '</option>').join('');
+  const cl = clinicNames();
+  $('#rTable tbody').innerHTML = RROWS.map((r, i) => '<tr data-i="' + i + '" class="' + (r.on === false ? 'off' : '') + '">' +
+    '<td><input type="text" class="w-m" data-k="doctor" list="docList" value="' + esc(r.doctor) + '"></td>' +
+    '<td><select data-k="clinic"><option value="">（全部院區）</option>' + cl.map(c => '<option' + (c === r.clinic ? ' selected' : '') + '>' + esc(c) + '</option>').join('') + '</select></td>' +
+    '<td><select data-k="day">' + DAYOPT.map(d => '<option' + (d === (r.day || '每天') ? ' selected' : '') + '>' + d + '</option>').join('') + '</select></td>' +
+    '<td><input type="text" class="w-s" data-k="bs" placeholder="18:30" value="' + esc(r.bs) + '"></td>' +
+    '<td><input type="text" class="w-s" data-k="be" placeholder="19:00" value="' + esc(r.be) + '"></td>' +
+    '<td><input type="checkbox" data-k="on"' + (r.on !== false ? ' checked' : '') + '></td>' +
+    '<td><input type="text" class="w-l" data-k="note" value="' + esc(r.note) + '"></td>' +
+    '<td><button class="btn sm del" data-del="1">刪除</button></td></tr>').join('') || '<tr><td colspan="8" class="hint">目前沒有規則</td></tr>';
+  $$('#rTable tbody tr[data-i]').forEach(tr => {
+    const r = RROWS[+tr.dataset.i];
+    tr.querySelectorAll('[data-k]').forEach(el => el.addEventListener('change', () => { const k = el.dataset.k; r[k] = k === 'on' ? el.checked : el.value.trim(); DIRTY.r = true; tr.classList.toggle('off', r.on === false); }));
+    tr.querySelector('[data-del]').addEventListener('click', () => { RROWS.splice(+tr.dataset.i, 1); DIRTY.r = true; renderRules(); });
+  });
+}
+$('#rAdd').addEventListener('click', () => { RROWS.push({ doctor: '', clinic: '', day: '每天', bs: '', be: '', on: true, note: '' }); DIRTY.r = true; renderRules(); });
+$('#rSave').addEventListener('click', async () => {
+  const rows = RROWS.filter(r => r.doctor);
+  const tm = /^\d{1,2}:\d{2}$/;
+  const bad = rows.filter(r => !tm.test(r.bs) || !tm.test(r.be) || E.hm(r.be) <= E.hm(r.bs));
+  if (bad.length) return toast('休息時間格式請填 18:30 這種格式，且結束要晚於開始：' + bad.map(r => r.doctor).join('、'), true);
+  const unknown = rows.filter(r => !DROWS.some(d => d.name === r.doctor)).map(r => r.doctor);
+  if (unknown.length && !confirm('醫師清單裡找不到：' + unknown.join('、') + '\n姓名要和門診表一致才會生效，仍要儲存？')) return;
+  busy($('#rSave'), true, '儲存中…');
+  try { await api('saveList', { key: 'rules', rows: rows.map(r => [r.doctor, r.clinic || '', r.day || '每天', r.bs, r.be, r.on !== false ? 'Y' : 'N', r.note || '']) }); DIRTY.r = false; RROWS = rows; renderRules(); toast('拆班規則已儲存（' + rows.length + ' 筆）'); }
+  catch (e) { toast(e.message, true); } finally { busy($('#rSave'), false); }
 });
 
 /* ---------- 系統設定 ---------- */
