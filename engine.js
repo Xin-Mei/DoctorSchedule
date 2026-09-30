@@ -544,7 +544,7 @@
     const cells = E.cells(doc);
     // 列高
     const rowH = cells.map(row => {
-      let h = 124;
+      let h = 146;   // 固定最小列高：一格含「(隔週休)」也放得下，所有醫師圖卡大小一致
       row.forEach(list => {
         if (!list.length) return;
         const mode = modeOf(list.length);
