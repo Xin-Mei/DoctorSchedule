@@ -454,12 +454,12 @@ async function saveMeta() {
 
 function visible() {
   const q = $('#q').value.trim();
-  return DOCS.filter(d => (!q || d.name.indexOf(q) >= 0) && (!FILTER || d.home === FILTER || d.clinics.indexOf(FILTER) >= 0));
+  return DOCS.filter(d => (!q || d.name.indexOf(q) >= 0) && (!FILTER || d.home === FILTER));
 }
 function renderFilter() {
   const cl = PARSED.clinics.map(c => c.clinic);
-  $('#clinicFilter').innerHTML = ['全部'].concat(cl).map(c => '<button class="chip' + ((c === '全部' ? '' : c) === FILTER ? ' on' : '') + '" data-c="' + (c === '全部' ? '' : esc(c)) + '">' + esc(c) + '</button>').join('');
-  $$('#clinicFilter .chip').forEach(b => b.addEventListener('click', () => { FILTER = b.dataset.c; renderFilter(); renderTable(); if (VIEW === 'gallery') renderGallery(); }));
+  $('#clinicFilter').innerHTML = ['全部'].concat(cl).map(c => '<button class="chip' + ((c === '全部' ? '' : c) === FILTER ? ' on' : '') + '" data-c="' + (c === '全部' ? '' : esc(c)) + '">' + esc(c) + '<small>' + (c === '全部' ? DOCS.length : DOCS.filter(d => d.home === c).length) + '</small></button>').join('');
+  $$('#clinicFilter .chip').forEach(b => b.addEventListener('click', () => { FILTER = b.dataset.c; renderFilter(); const v = visible(); if (v.length && v.indexOf(DOCS[CUR]) < 0) CUR = DOCS.indexOf(v[0]); renderTable(); showPreview(); if (VIEW === 'gallery') renderGallery(); }));
 }
 const cmpTag = c => c === '異動' ? '<span class="tag y">異動</span>' : c === '新增' ? '<span class="tag b">新增</span>' : c === '相同' ? '<span class="tag n">相同</span>' : c === '首版' ? '<span class="tag g">首版</span>' : '<span class="hint">—</span>';
 function renderTable() {
