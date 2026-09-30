@@ -327,7 +327,7 @@ $('#btnRead').addEventListener('click', async () => {
   busy($('#btnRead'), true, '讀取中…');
   $('#readStatus').textContent = '讀取中，院區較多約需 10～30 秒…';
   try {
-    BOOK = await api('readSchedule', { url });
+    BOOK = await readBook(url);
     const m = E.monthFromTitle(BOOK.title);
     if (m) $('#month').value = m;
     if (!$('#month').value) { const d = new Date(); $('#month').value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 2)).slice(-2); }
@@ -338,6 +338,32 @@ $('#btnRead').addEventListener('click', async () => {
   } catch (e) { $('#readStatus').textContent = '讀取失敗：' + e.message; toast(e.message, true); }
   finally { busy($('#btnRead'), false); }
 });
+
+/** 先取分頁清單，再分院區讀取（每次回傳較小，較不會失敗）；舊版後台不支援時改用一次讀取 */
+async function readBook(url) {
+  let meta = null;
+  try { meta = await api('listTabs', { url }); }
+  catch (e) { if (!/未知的動作/.test(e.message)) throw e; }
+  if (!meta) return api('readSchedule', { url });
+  const known = CFG.clinics.filter(c => c.on).map(c => c.tab || c.clinic);
+  const tabs = known.length ? meta.tabs.filter(t => known.indexOf(t) >= 0) : meta.tabs;
+  const sheets = new Array(tabs.length);
+  let done = 0, next = 0;
+  const worker = async () => {
+    while (next < tabs.length) {
+      const i = next++;
+      let r, tries = 0;
+      while (true) {
+        try { r = await api('readSchedule', { url, tabs: [tabs[i]] }); break; }
+        catch (e) { if (++tries >= 3) throw new Error(tabs[i] + ' 讀取失敗：' + e.message); await new Promise(z => setTimeout(z, 1200)); }
+      }
+      sheets[i] = r.sheets[0];
+      $('#readStatus').textContent = '讀取中… ' + (++done) + ' / ' + tabs.length + ' 院區（' + tabs[i] + '）';
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  return { title: meta.title, url, sheets: sheets.filter(Boolean) };
+}
 
 function reparse() {
   if (!BOOK) return;
