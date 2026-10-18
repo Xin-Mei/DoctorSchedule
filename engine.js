@@ -402,22 +402,25 @@
   function applyAlt(list, alts, range) {
     if (!alts.length || !range) return list;
     const from = new Date(range.from + 'T00:00:00'), to = new Date(range.to + 'T00:00:00');
-    const base = alts.map(a => a.anchor).sort()[0];
-    // 只套用在「第一次上診日前兩週內或之後才開始」的班表版本（例：10/21 起的隔週，不套用到 8/10開始 的舊版）
-    const st0 = new Date(base + 'T00:00:00'); st0.setDate(st0.getDate() - 13); const minStart = ymd(st0);
-    const out = [];
+    const out = [], hits = [];
     list.forEach(e => {
-      const a = (e.vstart || '') >= minStart && alts.find(a => (!a.clinic || a.clinic === e.clinic) && a.day === e.day && (!a.type || a.type === e.type) && (a.s === null || (e.s < a.e && e.e > a.s)));
+      // 時段要和門診表完全相同才套用（避免套到時間不同的舊版班表）
+      const a = alts.find(a => (!a.clinic || a.clinic === e.clinic) && a.day === e.day && (!a.type || a.type === e.type) && (a.s === null || (e.s === a.s && e.e === a.e)));
       if (!a) { out.push(e); return; }
-      const an = new Date(a.anchor + 'T00:00:00');
-      const dates = [];
-      for (let d = new Date(an); d <= to; d.setDate(d.getDate() + 14)) if (d >= from) dates.push((d.getMonth() + 1) + '/' + d.getDate());
-      if (!dates.length) return;
-      const diff = Math.round((an - new Date(base + 'T00:00:00')) / 864e5);
-      out.push(Object.assign({}, e, { alt: true, wk: (((diff / 7) % 2) + 2) % 2 === 0 ? 1 : 2, weeks: dates.join('、') }));
+      const ds = [];
+      for (let d = new Date(a.anchor + 'T00:00:00'); d <= to; d.setDate(d.getDate() + 14)) if (d >= from) ds.push(new Date(d));
+      if (!ds.length) return;                       // 本期間沒有上診 → 不顯示
+      const x = Object.assign({}, e, { alt: true, weeks: ds.map(d => (d.getMonth() + 1) + '/' + d.getDate()).join('、'), _d0: ds[0] });
+      out.push(x); hits.push(x);
     });
+    // 本期間最早上診的那一週為 Ⓐ，另一週為 Ⓑ
+    if (hits.length) {
+      const base = Math.min(...hits.map(x => x._d0.getTime()));
+      hits.forEach(x => { x.wk = Math.round((x._d0 - base) / 864e5 / 7) % 2 === 0 ? 1 : 2; delete x._d0; });
+    }
     return out;
   }
+
 
   E.buildDoctors = function (parsed, picks, meta, st, rules, adjust, alts, range) {
     st = st || E.settings();
@@ -499,7 +502,7 @@
   };
   /** 班表內容指紋（比對兩次產出是否有異動） */
   E.sig = function (doc) {
-    return [doc.title, doc.home].concat(doc.entries.map(e => [e.clinic, e.day, e.sess, e.s, e.e, e.type, e.alt ? 1 : 0, e.wk || 0, e.weeks || ''].join(','))).join(';');
+    return [doc.title, doc.home].concat(doc.entries.map(e => [e.clinic, e.day, e.sess, e.s, e.e, e.type, e.alt ? 1 : 0, e.wk ? 1 : 0].join(','))).join(';');
   };
   E.label = function (e) { return e.clinic + (e.type && e.type !== '健保' ? e.type : ''); };
   E.altLabel = function (e) { return e.alt ? '(' + (e.altText || '隔週休') + ')' : ''; };
