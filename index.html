@@ -445,15 +445,16 @@ async function loadPrev() {
     const prevDate = E.versionDates(PARSED).map(v => v.date).filter(d => d < date).pop() || month + '-01';
     const pp = E.pickVersions(PARSED, prevDate, {});
     const prevDocs = E.buildDoctors(PARSED, pp, CFG.doctors, ST, E.normRules(CFG.rules), E.normAdjust(CFG.adjust), E.normAlt(CFG.altweek, +month.slice(0, 4)), { from: prevDate, to: E.monthEnd(month) });
-    PREV = { meta: { date: prevDate, local: true }, doctors: prevDocs.map(d => ({ name: d.name, sig: E.sig(d) })) };
+    PREV = { meta: { date: prevDate, local: true }, doctors: prevDocs.map(d => ({ name: d.name, title: d.title, home: d.home, entries: d.entries })) };
   }
-  ONLYCHG = !!PREV && DOCS.some(d => { const p = PREV.doctors.find(x => x.name === d.name); return !p || p.sig !== E.sig(d); });
+  ONLYCHG = !!PREV && DOCS.some(d => { const p = PREV.doctors.find(x => x.name === d.name); return !p || (p.entries ? E.sig({ title: p.title, home: p.home, entries: p.entries }) : p.sig) !== E.sig(d); });
   if (ONLYCHG) FILTER = '';
   compare();
 }
 function compare() {
   const map = {};
-  if (PREV) PREV.doctors.forEach(d => map[d.name] = d.sig);
+  // 用目前的規則重新計算前版指紋（避免系統更新後，舊紀錄的格式不同而全部被判成異動）
+  if (PREV) PREV.doctors.forEach(d => map[d.name] = d.entries ? E.sig({ title: d.title, home: d.home, entries: d.entries }) : d.sig);
   DOCS.forEach(d => {
     d.sig = E.sig(d);
     d.cmp = !PREV ? '' : !(d.name in map) ? '新增' : map[d.name] === d.sig ? '相同' : '異動';

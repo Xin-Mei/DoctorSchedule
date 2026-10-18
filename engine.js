@@ -402,7 +402,8 @@
   function applyAlt(list, alts, range) {
     if (!alts.length || !range) return list;
     const from = new Date(range.from + 'T00:00:00'), to = new Date(range.to + 'T00:00:00');
-    const out = [], hits = [];
+    const base = new Date(alts.map(a => a.anchor).sort()[0] + 'T00:00:00');
+    const out = [];
     list.forEach(e => {
       // 時段要和門診表完全相同才套用（避免套到時間不同的舊版班表）
       const a = alts.find(a => (!a.clinic || a.clinic === e.clinic) && a.day === e.day && (!a.type || a.type === e.type) && (a.s === null || (e.s === a.s && e.e === a.e)));
@@ -410,14 +411,10 @@
       const ds = [];
       for (let d = new Date(a.anchor + 'T00:00:00'); d <= to; d.setDate(d.getDate() + 14)) if (d >= from) ds.push(new Date(d));
       if (!ds.length) return;                       // 本期間沒有上診 → 不顯示
-      const x = Object.assign({}, e, { alt: true, weeks: ds.map(d => (d.getMonth() + 1) + '/' + d.getDate()).join('、'), _d0: ds[0] });
-      out.push(x); hits.push(x);
+      // 固定：第一次上診日最早的那一組永遠是 Ⓐ（例：蕭捷健 平鎮 10/1 起 → 每個月都是 Ⓐ）
+      const diff = Math.round((new Date(a.anchor + 'T00:00:00') - base) / 864e5 / 7);
+      out.push(Object.assign({}, e, { alt: true, wk: ((diff % 2) + 2) % 2 === 0 ? 1 : 2, weeks: ds.map(d => (d.getMonth() + 1) + '/' + d.getDate()).join('、') }));
     });
-    // 本期間最早上診的那一週為 Ⓐ，另一週為 Ⓑ
-    if (hits.length) {
-      const base = Math.min(...hits.map(x => x._d0.getTime()));
-      hits.forEach(x => { x.wk = Math.round((x._d0 - base) / 864e5 / 7) % 2 === 0 ? 1 : 2; delete x._d0; });
-    }
     return out;
   }
 
@@ -502,7 +499,7 @@
   };
   /** 班表內容指紋（比對兩次產出是否有異動） */
   E.sig = function (doc) {
-    return [doc.title, doc.home].concat(doc.entries.map(e => [e.clinic, e.day, e.sess, e.s, e.e, e.type, e.alt ? 1 : 0, e.wk ? 1 : 0].join(','))).join(';');
+    return [doc.title, doc.home].concat(doc.entries.map(e => [e.clinic, e.day, e.sess, e.s, e.e, e.type, e.alt ? 1 : 0].join(','))).join(';');
   };
   E.label = function (e) { return e.clinic + (e.type && e.type !== '健保' ? e.type : ''); };
   E.altLabel = function (e) { return e.alt ? '(' + (e.altText || '隔週休') + ')' : ''; };
