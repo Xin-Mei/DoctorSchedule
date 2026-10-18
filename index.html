@@ -420,7 +420,7 @@ function repick() {
 async function build() {
   const keep = {};
   DOCS.forEach(d => { if (d._edited) keep[d.name] = { title: d.title, home: d.home }; });
-  DOCS = E.buildDoctors(PARSED, PICK, CFG.doctors, ST, E.normRules(CFG.rules), E.normAdjust(CFG.adjust));
+  DOCS = E.buildDoctors(PARSED, PICK, CFG.doctors, ST, E.normRules(CFG.rules), E.normAdjust(CFG.adjust), E.normAlt(CFG.altweek, +$('#month').value.slice(0, 4)), { from: $('#effDate').value, to: E.monthEnd($('#month').value) });
   DOCS.forEach(d => { if (keep[d.name]) Object.assign(d, keep[d.name], { _edited: true }); d._sel = true; });
   await loadPrev();
   CUR = 0;
@@ -444,7 +444,7 @@ async function loadPrev() {
   if (!PREV && date > month + '-01') {
     const prevDate = E.versionDates(PARSED).map(v => v.date).filter(d => d < date).pop() || month + '-01';
     const pp = E.pickVersions(PARSED, prevDate, {});
-    const prevDocs = E.buildDoctors(PARSED, pp, CFG.doctors, ST, E.normRules(CFG.rules), E.normAdjust(CFG.adjust));
+    const prevDocs = E.buildDoctors(PARSED, pp, CFG.doctors, ST, E.normRules(CFG.rules), E.normAdjust(CFG.adjust), E.normAlt(CFG.altweek, +month.slice(0, 4)), { from: prevDate, to: E.monthEnd(month) });
     PREV = { meta: { date: prevDate, local: true }, doctors: prevDocs.map(d => ({ name: d.name, sig: E.sig(d) })) };
   }
   ONLYCHG = !!PREV && DOCS.some(d => { const p = PREV.doctors.find(x => x.name === d.name); return !p || p.sig !== E.sig(d); });

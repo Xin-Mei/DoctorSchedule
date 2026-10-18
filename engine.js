@@ -26,6 +26,7 @@
     footer: 'Elite Clinic',
     watermark: 0.06,
     font: '粉圓體',
+    altStyle: 'mark',
     showLegend: 'Y'
   };
   E.settings = function (rows) {
@@ -381,14 +382,52 @@
     return out;
   }
 
-  E.buildDoctors = function (parsed, picks, meta, st, rules, adjust) {
+  /* ------------------------- 隔週規則 ------------------------- */
+  /** 後台「隔週規則」列 → [{doctor, clinic, day, type, s, e, anchor:'2026-10-21'}] */
+  E.normAlt = function (rows, year) {
+    const dayIdx = t => { t = String(t || '').trim(); const ch = t.slice(-1); return '一二三四五六日'.indexOf(ch === '天' ? '日' : ch); };
+    return (rows || []).filter(r => r && r.doctor && r.on !== false && r.first).map(r => {
+      const g = ranges(r.time);
+      let a = String(r.first).trim().replace(/[.\/]/g, '-');
+      let m = a.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (!m) { const k = a.match(/^(\d{1,2})-(\d{1,2})$/); if (k) m = [0, year || new Date().getFullYear(), k[1], k[2]]; }
+      const anchor = m ? m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2) : '';
+      let day = dayIdx(r.day);
+      if (day < 0 && anchor) day = (new Date(anchor + 'T00:00:00').getDay() + 6) % 7;
+      return { doctor: String(r.doctor).trim(), clinic: String(r.clinic || '').trim(), day, type: String(r.type || '').trim(), s: g ? g[0].s : null, e: g ? g[0].e : null, anchor };
+    }).filter(r => r.anchor && r.day >= 0);
+  };
+  const ymd = d => d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  /** 套用隔週規則：標記 A／B 週與本期實際上診日期；本期完全沒有上診的那段就拿掉 */
+  function applyAlt(list, alts, range) {
+    if (!alts.length || !range) return list;
+    const from = new Date(range.from + 'T00:00:00'), to = new Date(range.to + 'T00:00:00');
+    const base = alts.map(a => a.anchor).sort()[0];
+    // 只套用在「第一次上診日前兩週內或之後才開始」的班表版本（例：10/21 起的隔週，不套用到 8/10開始 的舊版）
+    const st0 = new Date(base + 'T00:00:00'); st0.setDate(st0.getDate() - 13); const minStart = ymd(st0);
+    const out = [];
+    list.forEach(e => {
+      const a = (e.vstart || '') >= minStart && alts.find(a => (!a.clinic || a.clinic === e.clinic) && a.day === e.day && (!a.type || a.type === e.type) && (a.s === null || (e.s < a.e && e.e > a.s)));
+      if (!a) { out.push(e); return; }
+      const an = new Date(a.anchor + 'T00:00:00');
+      const dates = [];
+      for (let d = new Date(an); d <= to; d.setDate(d.getDate() + 14)) if (d >= from) dates.push((d.getMonth() + 1) + '/' + d.getDate());
+      if (!dates.length) return;
+      const diff = Math.round((an - new Date(base + 'T00:00:00')) / 864e5);
+      out.push(Object.assign({}, e, { alt: true, wk: (((diff / 7) % 2) + 2) % 2 === 0 ? 1 : 2, weeks: dates.join('、') }));
+    });
+    return out;
+  }
+
+  E.buildDoctors = function (parsed, picks, meta, st, rules, adjust, alts, range) {
     st = st || E.settings();
     rules = rules || [];
     adjust = adjust || [];
+    alts = alts || [];
     const metaMap = {};
     (meta || []).forEach(m => { if (m.name) metaMap[m.name] = m; });
     const all = [];
-    parsed.clinics.forEach(c => { const b = c.blocks[picks.picks[c.clinic]]; if (b) b.entries.forEach(e => all.push(e)); });
+    parsed.clinics.forEach(c => { const b = c.blocks[picks.picks[c.clinic]]; if (b) b.entries.forEach(e => all.push(Object.assign({}, e, { vstart: b.start }))); });
     const byDoc = {};
     all.forEach(e => { (byDoc[e.doctor] = byDoc[e.doctor] || []).push(e); });
     const docs = [];
@@ -403,7 +442,7 @@
         if (!map[k]) map[k] = Object.assign({}, e);
         else { map[k].alt = map[k].alt && e.alt; if (!map[k].altText) map[k].altText = e.altText; }
       });
-      let list = Object.values(map);
+      let list = applyAlt(Object.values(map), alts.filter(a => a.doctor === name), range);
       // 特別門診與同院區、同一天的健保門診重疊 → 重疊部分不顯示
       //   完全落在健保門診內（含前後相連的兩段，例：14:30-18:30＋18:30-21:30）→ 整筆不顯示
       //   部分重疊 → 只留沒重疊的部分（例：減重 13:00-19:00、健保 13:00-15:00 → 減重 15:00-19:00）
@@ -413,7 +452,7 @@
         list.forEach(e => {
           if (e.type === '健保') { out.push(e); return; }
           let pieces = [[e.s, e.e]];
-          reg.filter(r => r.clinic === e.clinic && r.day === e.day).forEach(r => {
+          reg.filter(r => r.clinic === e.clinic && r.day === e.day && (!r.wk || !e.wk || r.wk === e.wk)).forEach(r => {   // 不同週輪替的門診不互相扣除
             const next = [];
             pieces.forEach(([a, b]) => { if (r.e <= a || r.s >= b) next.push([a, b]); else { if (a < r.s) next.push([a, r.s]); if (b > r.e) next.push([r.e, b]); } });
             pieces = next;
@@ -426,7 +465,7 @@
         list = out;
       }
       list = applyAdjust(list, adjust.filter(a => a.doctor === name));
-      list.sort((a, b) => a.day - b.day || E.SESS.indexOf(a.sess) - E.SESS.indexOf(b.sess) || a.s - b.s || (a.type === '健保' ? -1 : 1));
+      list.sort((a, b) => a.day - b.day || E.SESS.indexOf(a.sess) - E.SESS.indexOf(b.sess) || a.s - b.s || (a.wk || 0) - (b.wk || 0) || (a.type === '健保' ? -1 : 1));
       const auto = autoHome(list);
       const d = {
         name,
@@ -436,7 +475,7 @@
         autoHome: auto,
         isNew: !m,
         order: m && m.order !== '' && m.order !== undefined ? +m.order : 9999,
-        entries: list.map(e => ({ clinic: e.clinic, day: e.day, sess: e.sess, s: e.s, e: e.e, type: e.type, alt: !!e.alt, altText: e.altText || '', extra: e.extra || '' })),
+        entries: list.map(e => ({ clinic: e.clinic, day: e.day, sess: e.sess, s: e.s, e: e.e, type: e.type, alt: !!e.alt, altText: e.altText || '', extra: e.extra || '', wk: e.wk || 0, weeks: e.weeks || '' })),
         clinics: Array.from(new Set(list.map(e => e.clinic)))
       };
       docs.push(d);
@@ -460,7 +499,7 @@
   };
   /** 班表內容指紋（比對兩次產出是否有異動） */
   E.sig = function (doc) {
-    return [doc.title, doc.home].concat(doc.entries.map(e => [e.clinic, e.day, e.sess, e.s, e.e, e.type, e.alt ? 1 : 0].join(','))).join(';');
+    return [doc.title, doc.home].concat(doc.entries.map(e => [e.clinic, e.day, e.sess, e.s, e.e, e.type, e.alt ? 1 : 0, e.wk || 0, e.weeks || ''].join(','))).join(';');
   };
   E.label = function (e) { return e.clinic + (e.type && e.type !== '健保' ? e.type : ''); };
   E.altLabel = function (e) { return e.alt ? '(' + (e.altText || '隔週休') + ')' : ''; };
@@ -527,10 +566,20 @@
   let FK = 1;
   const specOf = mode => { const b = SPEC[mode]; if (FK === 1) return b; const o = Object.assign({}, b); ['lab', 'sub', 'alt', 't', 'gap', 'pad'].forEach(k => o[k] = b[k] * FK); return o; };
   const isPlain = e => (!e.type || e.type === '健保') && !e.alt;
+  let ALTSTYLE = 'date';
+  // 隔週記號配色：[A 週, B 週]；outline=true 時 B 週為空心
+  E.WK = { colors: ['#2f5a50', '#2f5a50'], outline: true };
+  const wkBadge = (ctx, x, y, r, k) => {
+    const col = E.WK.colors[k - 1], hollow = E.WK.outline && k === 2;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    if (hollow) { ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke(); } else { ctx.fillStyle = col; ctx.fill(); }
+    ctx.fillStyle = hollow ? col : '#fff'; ctx.font = '700 ' + Math.round(r * 1.25) + 'px ' + LABEL_FONT; ctx.textAlign = 'center'; ctx.fillText(k === 1 ? 'A' : 'B', x, y + r * .45);
+  };
+  const showAlt = e => e.alt && !(ALTSTYLE === 'mark' && e.wk);
   function entryH(e, mode) {
     if (mode === 'big' && isPlain(e)) mode = 'hero';
     const f = specOf(mode);
-    let h = f.lab + (f.twoLine && hasType(e) ? f.sub + 3 : 0) + (e.alt ? f.alt + 3 : 0) + f.gap;
+    let h = f.lab + (f.twoLine && hasType(e) ? f.sub + 3 : 0) + (showAlt(e) ? f.alt + (ALTSTYLE === 'pill' && e.wk ? 9 : 3) : 0) + f.gap;
     h += f.vertical ? f.t * 2 + 14 + f.gap * 2 : f.t + 2;
     return h + f.pad;
   }
@@ -544,6 +593,7 @@
   E.render = function (doc, o) {
     o = o || {};
     const st = o.settings || E.settings();
+    ALTSTYLE = st.altStyle || 'date';
     useFont(st.font);
     const scale = o.scale || 2;
     const W = 1000, P = 40, LW = 44, GAP = 8;
@@ -596,6 +646,14 @@
     const d1 = o.date && +o.date.slice(8, 10) !== 1 ? E.md(o.date) + ' 起適用 · ' : '';
     ctx.font = '500 16px ' + FONT; ctx.fillStyle = C.muted;
     ctx.fillText('個人班表 · ' + d1 + (st.notice || ''), P + 22, 124);
+    if (ALTSTYLE === 'mark') {
+      const wk = {}; doc.entries.forEach(e => { if (e.wk) wk[e.wk] = e.weeks; });
+      let lx = P + 22 + ctx.measureText('個人班表 · ' + d1 + (st.notice || '')).width + 22;
+      [1, 2].forEach(k => { if (!wk[k]) return;
+        wkBadge(ctx, lx + 9, 118, 9, k); ctx.textAlign = 'left';
+        ctx.fillStyle = C.ink2; ctx.font = '700 15px ' + LABEL_FONT; const t = wk[k] + ' 看診'; ctx.fillText(t, lx + 24, 124); lx += 24 + ctx.measureText(t).width + 18; });
+      ctx.font = '500 16px ' + FONT; ctx.fillStyle = C.muted;
+    }
     // 圖例
     if (String(st.showLegend).toUpperCase() !== 'N') {
       ctx.font = '500 15px ' + FONT;
@@ -637,6 +695,10 @@
           ctx.fillStyle = home ? C.homeBg : C.othBg; rr(ctx, bx, by, bw, bh, 12); ctx.fill();
           ctx.strokeStyle = home ? C.homeBd : C.othBd; ctx.lineWidth = home ? 2 : 1.5; rr(ctx, bx + .8, by + .8, bw - 1.6, bh - 1.6, 11.5); ctx.stroke();
           drawEntry(ctx, e, bx, by, bw, bh, mode, home ? C.homeInk : C.othInk);
+          if (ALTSTYLE === 'mark' && e.wk) {   // 隔週：角落圓形記號
+            const r = Math.min(11, bh / 6.5);
+            wkBadge(ctx, bx + bw - r - 4, by + r + 4, r, e.wk);
+          }
         };
         if (mode === 'narrow') {           // 兩個門診：左右直切
           const sw = (colW - 5) / 2;
@@ -672,7 +734,12 @@
     // 格子內的院區＋時間固定用思源黑體；其餘（姓名、標題、圖例）用班表字體
     cy += fitText(ctx, lab, inner, f.lab, 700, LABEL_FONT); ctx.fillText(lab, cxm, cy);
     if (two) { fitText(ctx, e.type, inner, f.sub, 700, LABEL_FONT); cy += f.sub + 3; ctx.fillText(e.type, cxm, cy); }
-    if (e.alt) { fitText(ctx, E.altLabel(e), inner, f.alt, 700, LABEL_FONT); cy += f.alt + 3; ctx.fillText(E.altLabel(e), cxm, cy); }
+    if (showAlt(e) && ALTSTYLE === 'pill' && e.wk) {
+      const t = e.weeks; const fs = fitText(ctx, t, inner - 14, f.alt * .9, 700, LABEL_FONT);
+      const tw = ctx.measureText(t).width + 14, ph = fs + 8;
+      ctx.fillStyle = E.WK.colors[e.wk - 1]; rr(ctx, cxm - tw / 2, cy + 4, tw, ph, ph / 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillText(t, cxm, cy + 4 + ph - 5); ctx.fillStyle = ink; cy += f.alt + 9;
+    } else if (showAlt(e)) { const t = e.wk ? '(' + e.weeks + ')' : E.altLabel(e); fitText(ctx, t, inner, f.alt, 700, LABEL_FONT); cy += f.alt + 3; ctx.fillText(t, cxm, cy); }
     cy += f.gap;
     if (f.vertical) {
       fitText(ctx, '00:00', inner, f.t, 700, LABEL_FONT);

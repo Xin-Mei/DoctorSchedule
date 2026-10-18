@@ -97,6 +97,7 @@ body.locked header.top,body.locked main{visibility:hidden}
     <button data-p="clinics">院區清單</button>
     <button data-p="rules">拆班規則</button>
     <button data-p="adjust">班表微調</button>
+    <button data-p="altweek">隔週規則</button>
     <button data-p="settings">系統設定</button>
     <button data-p="batches">產出紀錄</button>
     <button data-p="account">帳號密碼</button>
@@ -155,6 +156,17 @@ body.locked header.top,body.locked main{visibility:hidden}
       ・<b>動作</b>：移到早診／午診／晚診、改時間（填「新時間」）、刪除、新增（新增時「時段」填要加的時間，診別填 健保／減重…）。<br>
       ・系統已自動處理：減重時間和健保門診重疊的部分不顯示（完全重疊就整筆不顯示），不用另外設定。</div>
     <div class="tbl-wrap"><table class="dt" id="aTable"><thead><tr><th>醫師姓名</th><th>星期</th><th>院區</th><th>診別</th><th>時段</th><th>動作</th><th>新時間</th><th>啟用</th><th>備註</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<!-- 隔週規則 -->
+<section id="p-altweek" class="hide">
+  <div class="card">
+    <div class="bar"><p class="step">隔週規則 ˙ 單雙週輪替的門診</p><div class="grow"></div><button class="btn sm" id="wAdd">＋ 新增一筆</button><button class="btn sm pri" id="wSave">儲存到後台</button></div>
+    <div class="info">同一個時段每兩週輪替時，每一段填一筆「第一次上診日」，系統會每 14 天自動推算，班表上以 <b>Ⓐ</b>／<b>Ⓑ</b> 標示，並在標題旁註記日期（例：Ⓐ 10/21 看診　Ⓑ 10/28 看診）。<br>
+      例：闕壯理 星期三 三樹 → 健保 16:00-18:00＋減重 18:30-21:30 第一次 10/21；健保 18:30-21:30 第一次 10/28。<br>
+      ・<b>時段</b>填門診表上的時間，用來找到那一格；第一次上診日較早的為 Ⓐ。本期間沒有上診的那段不會出現在班表上。</div>
+    <div class="tbl-wrap"><table class="dt" id="wTable"><thead><tr><th>醫師姓名</th><th>院區</th><th>星期</th><th>診別</th><th>時段</th><th>第一次上診日</th><th>啟用</th><th>備註</th><th></th></tr></thead><tbody></tbody></table></div>
   </div>
 </section>
 
@@ -248,16 +260,16 @@ async function boot() {
   $('#whoName').textContent = WHO ? WHO.user : '';
   resetIdle();
   try { CFG = await api('getConfig'); } catch (e) { return toast(e.message, true); }
-  DROWS = CFG.doctors.map(d => ({ ...d })); CROWS = CFG.clinics.map(c => ({ ...c })); RROWS = (CFG.rules || []).map(r => ({ ...r })); AROWS = (CFG.adjust || []).map(r => ({ ...r }));
-  renderDoctors(); renderClinics(); renderSettings(); renderRules(); renderAdjust();
+  DROWS = CFG.doctors.map(d => ({ ...d })); CROWS = CFG.clinics.map(c => ({ ...c })); RROWS = (CFG.rules || []).map(r => ({ ...r })); AROWS = (CFG.adjust || []).map(r => ({ ...r })); WROWS = (CFG.altweek || []).map(r => ({ ...r }));
+  renderDoctors(); renderClinics(); renderSettings(); renderRules(); renderAdjust(); renderAlt();
 }
 $$('nav.tabs button').forEach(b => b.addEventListener('click', () => {
   $$('nav.tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['doctors', 'clinics', 'rules', 'adjust', 'settings', 'batches', 'account', 'log'].forEach(p => $('#p-' + p).classList.toggle('hide', p !== b.dataset.p));
+  ['doctors', 'clinics', 'rules', 'adjust', 'altweek', 'settings', 'batches', 'account', 'log'].forEach(p => $('#p-' + p).classList.toggle('hide', p !== b.dataset.p));
   if (b.dataset.p === 'batches') loadBatches();
   if (b.dataset.p === 'log') loadLog();
 }));
-window.addEventListener('beforeunload', e => { if (DIRTY.d || DIRTY.c || DIRTY.r || DIRTY.a) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (DIRTY.d || DIRTY.c || DIRTY.r || DIRTY.a || DIRTY.w) { e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- 醫師清單 ---------- */
 function clinicNames() { return CROWS.filter(c => c.on !== false).map(c => c.clinic); }
@@ -384,6 +396,39 @@ $('#aSave').addEventListener('click', async () => {
   busy($('#aSave'), true, '儲存中…');
   try { await api('saveList', { key: 'adjust', rows: rows.map(r => [r.doctor, r.day || '星期一', r.clinic || '', r.type || '', r.time || '', r.action, r.newTime || '', r.on !== false ? 'Y' : 'N', r.note || '']) }); DIRTY.a = false; AROWS = rows; renderAdjust(); toast('班表微調已儲存（' + rows.length + ' 筆）'); }
   catch (e) { toast(e.message, true); } finally { busy($('#aSave'), false); }
+});
+
+/* ---------- 隔週規則 ---------- */
+let WROWS = [];
+function renderAlt() {
+  const cl = clinicNames();
+  const sel = (k, v, opts, blank) => '<select data-k="' + k + '">' + (blank !== undefined ? '<option value="">' + blank + '</option>' : '') + opts.concat(v && opts.indexOf(v) < 0 ? [v] : []).map(o => '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
+  $('#wTable tbody').innerHTML = WROWS.map((r, i) => '<tr data-i="' + i + '" class="' + (r.on === false ? 'off' : '') + '">' +
+    '<td><input type="text" class="w-m" data-k="doctor" list="docList" value="' + esc(r.doctor) + '"></td>' +
+    '<td>' + sel('clinic', r.clinic, cl, '（全部）') + '</td>' +
+    '<td>' + sel('day', r.day || '星期一', ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']) + '</td>' +
+    '<td><input type="text" class="w-s" data-k="type" list="typeList" placeholder="健保" value="' + esc(r.type) + '"></td>' +
+    '<td><input type="text" class="w-m" data-k="time" placeholder="16:00-18:00" value="' + esc(r.time) + '"></td>' +
+    '<td><input type="date" data-k="first" value="' + esc(String(r.first || '').replace(/\//g, '-')) + '"></td>' +
+    '<td><input type="checkbox" data-k="on"' + (r.on !== false ? ' checked' : '') + '></td>' +
+    '<td><input type="text" class="w-l" data-k="note" value="' + esc(r.note) + '"></td>' +
+    '<td><button class="btn sm del" data-del="1">刪除</button></td></tr>').join('') || '<tr><td colspan="9" class="hint">目前沒有隔週規則</td></tr>';
+  $$('#wTable tbody tr[data-i]').forEach(tr => {
+    const r = WROWS[+tr.dataset.i];
+    tr.querySelectorAll('[data-k]').forEach(el => el.addEventListener('change', () => { const k = el.dataset.k; r[k] = k === 'on' ? el.checked : el.value.trim(); DIRTY.w = true; tr.classList.toggle('off', r.on === false); }));
+    tr.querySelector('[data-del]').addEventListener('click', () => { WROWS.splice(+tr.dataset.i, 1); DIRTY.w = true; renderAlt(); });
+  });
+}
+$('#wAdd').addEventListener('click', () => { WROWS.push({ doctor: '', clinic: '', day: '星期一', type: '健保', time: '', first: '', on: true, note: '' }); DIRTY.w = true; renderAlt(); });
+$('#wSave').addEventListener('click', async () => {
+  const rows = WROWS.filter(r => r.doctor);
+  const bad = rows.filter(r => !r.first || (r.time && !/^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(r.time)));
+  if (bad.length) return toast('請填第一次上診日，時段格式為 16:00-18:00：' + bad.map(r => r.doctor).join('、'), true);
+  const wrongDay = rows.filter(r => { const d = new Date(String(r.first).replace(/\//g, '-') + 'T00:00:00'); return '一二三四五六日'[(d.getDay() + 6) % 7] !== String(r.day).slice(-1); });
+  if (wrongDay.length && !confirm('第一次上診日和星期對不上：' + wrongDay.map(r => r.doctor + ' ' + r.first).join('、') + '\n仍要儲存？')) return;
+  busy($('#wSave'), true, '儲存中…');
+  try { await api('saveList', { key: 'altweek', rows: rows.map(r => [r.doctor, r.clinic || '', r.day || '', r.type || '', r.time || '', String(r.first).replace(/-/g, '/'), r.on !== false ? 'Y' : 'N', r.note || '']) }); DIRTY.w = false; WROWS = rows; renderAlt(); toast('隔週規則已儲存（' + rows.length + ' 筆）'); }
+  catch (e) { toast(e.message, true); } finally { busy($('#wSave'), false); }
 });
 
 /* ---------- 系統設定 ---------- */
