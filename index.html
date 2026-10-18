@@ -430,24 +430,27 @@ async function build() {
 }
 
 /** 找同月份、生效日較早的最近一次產出 → 比對異動 */
+/** 前版比對：一律用「同一份門診表＋目前的後台規則」重新算出前一版來比，
+ *  只會抓到門診表真正有變動的醫師（不受系統更新、舊紀錄格式影響）。
+ *  前一版日期：本月已儲存過、生效日較早的最近一批；沒有的話用前一個版本日期。 */
 async function loadPrev() {
   PREV = null;
   const date = $('#effDate').value, month = $('#month').value;
+  let prevDate = '';
   try {
-    const list = (await api('listBatches', { month })).filter(b => b.date < date);
-    if (list.length) {
-      list.sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
-      PREV = await api('getBatch', { id: list[0].id });
-    }
+    const list = (await api('listBatches', { month })).filter(b => b.date < date).map(b => b.date).sort();
+    if (list.length) prevDate = list.pop();
   } catch (e) { console.warn(e); }
-  // 還沒儲存過前一版 → 直接用同一份門診表算出前一個版本來比對
-  if (!PREV && date > month + '-01') {
-    const prevDate = E.versionDates(PARSED).map(v => v.date).filter(d => d < date).pop() || month + '-01';
+  if (!prevDate && date > month + '-01') prevDate = E.versionDates(PARSED).map(v => v.date).filter(d => d < date).pop() || month + '-01';
+  if (prevDate) {
     const pp = E.pickVersions(PARSED, prevDate, {});
     const prevDocs = E.buildDoctors(PARSED, pp, CFG.doctors, ST, E.normRules(CFG.rules), E.normAdjust(CFG.adjust), E.normAlt(CFG.altweek, +month.slice(0, 4)), { from: prevDate, to: E.monthEnd(month) });
     PREV = { meta: { date: prevDate, local: true }, doctors: prevDocs.map(d => ({ name: d.name, title: d.title, home: d.home, entries: d.entries })) };
   }
-  ONLYCHG = !!PREV && DOCS.some(d => { const p = PREV.doctors.find(x => x.name === d.name); return !p || (p.entries ? E.sig({ title: p.title, home: p.home, entries: p.entries }) : p.sig) !== E.sig(d); });
+  // 職稱／專任院區在前台臨時調整過的，比對時以目前設定為準，不算異動
+  const curMeta = {}; DOCS.forEach(d => curMeta[d.name] = d);
+  if (PREV) PREV.doctors.forEach(p => { if (curMeta[p.name]) { p.title = curMeta[p.name].title; p.home = curMeta[p.name].home; } });
+  ONLYCHG = !!PREV && DOCS.some(d => { const p = PREV.doctors.find(x => x.name === d.name); return !p || E.sig(p) !== E.sig(d); });
   if (ONLYCHG) FILTER = '';
   compare();
 }
