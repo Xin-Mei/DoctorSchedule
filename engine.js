@@ -405,8 +405,11 @@
     const base = new Date(alts.map(a => a.anchor).sort()[0] + 'T00:00:00');
     const out = [];
     list.forEach(e => {
-      // 時段要和門診表完全相同才套用（避免套到時間不同的舊版班表）
-      const a = alts.find(a => (!a.clinic || a.clinic === e.clinic) && a.day === e.day && (!a.type || a.type === e.type) && (a.s === null || (e.s === a.s && e.e === a.e)));
+      // 時段比對：完全相同 → 套用；時間有重疊且該院區班表是「第一次上診日前兩週內或之後」才開始的新版 → 也套用
+      //（門診表微調時間，如減重 18:30 改 18:00，規則不用改；但不會套到 8/10開始 這種舊版）
+      const near = a => { const d = new Date(a.anchor + 'T00:00:00'); d.setDate(d.getDate() - 13); return (e.vstart || '') >= ymd(d); };
+      const a = alts.find(a => (!a.clinic || a.clinic === e.clinic) && a.day === e.day && (!a.type || a.type === e.type) &&
+        (a.s === null || (e.s === a.s && e.e === a.e) || (e.s < a.e && e.e > a.s && near(a))));
       if (!a) { out.push(e); return; }
       const ds = [];
       for (let d = new Date(a.anchor + 'T00:00:00'); d <= to; d.setDate(d.getDate() + 14)) if (d >= from) ds.push(new Date(d));
